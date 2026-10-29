@@ -9,7 +9,7 @@ import {
   PayerOrganizationType,
 } from '../types';
 import { formatCurrency, analyzeDifferences, getPlanTargetAudience, getPlanPrimaryAudience } from '../data/plans';
-import { MOCK_EXISTING_CUSTOMERS, formatThaiBuddhistDate } from '../data/customers';
+import { MOCK_EXISTING_CUSTOMERS, formatThaiBuddhistDate, calculateAge } from '../data/customers';
 import {
   ShieldCheck,
   Gift,
@@ -566,9 +566,9 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
                 <span className="font-semibold text-slate-800">
                   {userDob ? formatThaiBuddhistDate(userDob) : '15/05/2538'}
                 </span>
-                {currentAge !== null && currentAge !== undefined && (
-                  <span className="text-slate-600 font-medium">({currentAge} ปี)</span>
-                )}
+                <span className="text-slate-800 font-semibold ml-1">
+                  (อายุ {currentAge !== null && currentAge !== undefined ? currentAge : (userDob ? calculateAge(userDob) : 31)} ปี)
+                </span>
               </span>
               <span className="text-slate-300 hidden sm:inline">•</span>
               <span className="inline-flex items-center gap-1">
@@ -796,8 +796,8 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
               <label
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer select-none transition-colors shadow-2xs ml-1 ${
                   highlightDiffs
-                    ? 'bg-amber-50/80 border-amber-300 text-amber-900 font-semibold'
-                    : 'bg-white border-slate-200 text-slate-700 font-medium hover:bg-slate-50'
+                    ? 'bg-transparent border-amber-400 text-amber-900 font-semibold'
+                    : 'bg-transparent border-slate-200 text-slate-700 font-medium hover:bg-slate-50/50'
                 }`}
               >
                 <input

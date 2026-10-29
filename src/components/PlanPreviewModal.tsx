@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { InsurancePlan, ExportMeta, CustomerProfile } from '../types';
-import { formatCurrency, getPlanTargetAudience } from '../data/plans';
+import { formatCurrency } from '../data/plans';
 import { exportToPdf, triggerPrint } from '../utils/pdfExport';
 import { PolicyTermsNotice } from './PolicyTermsNotice';
 import {
@@ -8,26 +8,19 @@ import {
   Printer,
   FileDown,
   Eye,
-  BookmarkPlus,
-  Edit3,
   Check,
   Loader2,
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  User,
-  Building2,
   Calendar,
-  ShieldCheck,
   AlertCircle,
-  FileText,
-  Phone,
+  ShieldCheck,
+  HeartPulse,
+  Activity,
   Sparkles,
-  Car,
-  Home,
-  Building,
-  Landmark,
-  Users,
+  User,
+  Phone,
 } from 'lucide-react';
 
 interface PlanPreviewModalProps {
@@ -56,8 +49,8 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [exportSuccess, setExportSuccess] = useState<boolean>(false);
-  const [historySuccess, setHistorySuccess] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const useTemplateBg = true;
 
   // If existing customer plan is available
   const existingCustomerPlan = useMemo(() => {
@@ -95,10 +88,15 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
 
     const roomICUPerNight = plansForCombined.reduce((sum, p) => sum + p.roomICU.perNight, 0);
     const roomICUMaxLimit = plansForCombined.reduce((sum, p) => sum + p.roomICU.maxLimit, 0);
+    const roomCombinedMaxLimit = roomNormalMaxLimit + roomICUMaxLimit;
 
     const medicalGeneral = plansForCombined.reduce((sum, p) => sum + p.medicalGeneralPerVisit, 0);
     const surgery = plansForCombined.reduce((sum, p) => sum + p.surgeryPerDisorder, 0);
-    const doctorVisit = plansForCombined.reduce((sum, p) => sum + p.doctorVisitPerNight.perNight, 0);
+    const inpatientMedicalSubtotal = medicalGeneral + surgery;
+
+    const doctorVisitPerNight = plansForCombined.reduce((sum, p) => sum + p.doctorVisitPerNight.perNight, 0);
+    const doctorVisitMaxLimit = plansForCombined.reduce((sum, p) => sum + p.doctorVisitPerNight.maxLimit, 0);
+    const inpatientMedicalMaxLimit = roomNormalMaxLimit + medicalGeneral + surgery + doctorVisitMaxLimit;
 
     const opdAccident = plansForCombined.reduce((sum, p) => sum + p.opd.accident, 0);
     const opdCoveredPlans = plansForCombined.filter((p) => p.opd.illness.covered);
@@ -107,6 +105,25 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
 
     const dailyComp = plansForCombined.reduce((sum, p) => sum + p.dailyCompensation.perNight, 0);
     const lifeAccident = plansForCombined.reduce((sum, p) => sum + p.life.accidentGeneral, 0);
+    const lifeMurder = plansForCombined.reduce((sum, p) => sum + p.life.murderAssault, 0);
+    const lifeMotorcycle = plansForCombined.reduce((sum, p) => sum + p.life.motorcycle, 0);
+    const lifeFuneral = plansForCombined.reduce((sum, p) => sum + p.life.funeralBenefit, 0);
+
+    const paPermanentDisability = plansForCombined.reduce(
+      (sum, p) => sum + (p.paSchedule?.permanentDisability ?? p.life.accidentGeneral),
+      0
+    );
+    const paTwoLimbsOrEyes = plansForCombined.reduce(
+      (sum, p) => sum + (p.paSchedule?.twoLimbsOrEyes ?? p.life.accidentGeneral),
+      0
+    );
+    const paOneLimbOrEye = plansForCombined.reduce(
+      (sum, p) => sum + (p.paSchedule?.oneLimbOrEye ?? Math.round(p.life.accidentGeneral * 0.6)),
+      0
+    );
+
+    const minEligibleAge = Math.max(...plansForCombined.map((p) => p.minAge));
+    const maxEligibleAge = Math.min(...plansForCombined.map((p) => p.maxAge));
 
     const existingMonthly = existingCustomerPlan ? existingCustomerPlan.monthlyPremium : 0;
     const addedMonthly = Math.max(0, monthlyPremium - existingMonthly);
@@ -118,14 +135,26 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
       roomNormalMaxLimit,
       roomICUPerNight,
       roomICUMaxLimit,
+      roomCombinedMaxLimit,
       medicalGeneral,
       surgery,
-      doctorVisit,
+      inpatientMedicalSubtotal,
+      doctorVisitPerNight,
+      doctorVisitMaxLimit,
+      inpatientMedicalMaxLimit,
       opdAccident,
       hasOpdIllness,
       opdIllnessPerVisit,
       dailyComp,
       lifeAccident,
+      lifeMurder,
+      lifeMotorcycle,
+      lifeFuneral,
+      paPermanentDisability,
+      paTwoLimbsOrEyes,
+      paOneLimbOrEye,
+      minEligibleAge,
+      maxEligibleAge,
       addedMonthly,
     };
   }, [plansForCombined, existingCustomerPlan]);
@@ -177,20 +206,14 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
     }, 150);
   };
 
-  const handleSaveHistoryClick = () => {
-    if (onSaveToHistory) {
-      onSaveToHistory();
-      setHistorySuccess(true);
-      setTimeout(() => setHistorySuccess(false), 3000);
-    }
-  };
-
   const customerDisplayName =
     exportMeta.customerName.trim() ||
     (existingCustomer ? existingCustomer.fullName : 'ลูกค้าทั่วไป (ไม่ระบุชื่อ)');
 
   const agentDisplayName =
     `${exportMeta.agentFirstName} ${exportMeta.agentLastName}`.trim() || 'ตัวแทนสยามสไมล์';
+
+  const totalColumnsCount = selectedPlans.length + (combinedTotals ? 2 : 1);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/80 backdrop-blur-xs animate-in fade-in duration-200">
@@ -210,9 +233,6 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
                 {selectedPlans.length} แผน
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
-              ตรวจสอบความถูกต้องและรายละเอียดความคุ้มครองก่อนสั่งพิมพ์หรือส่งออก PDF
-            </p>
           </div>
         </div>
 
@@ -249,36 +269,6 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
 
         {/* Right: Action Buttons */}
         <div className="flex items-center gap-2">
-          {onOpenExportSettings && (
-            <button
-              type="button"
-              onClick={onOpenExportSettings}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 text-xs font-medium transition-colors cursor-pointer"
-              title="แก้ไขข้อมูลลูกค้า ผู้แทน หรือหมายเหตุ"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden sm:inline">แก้ไขข้อมูล</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={handleSaveHistoryClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-950/40 text-sky-200 hover:bg-sky-900/60 text-xs font-medium transition-colors cursor-pointer"
-            title="บันทึกข้อมูล Smart Brochure ลงใน Firebase Firestore"
-          >
-            {historySuccess ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-300">บันทึกใน Firebase แล้ว</span>
-              </>
-            ) : (
-              <>
-                <BookmarkPlus className="w-3.5 h-3.5 text-sky-400" />
-                <span className="hidden sm:inline">บันทึก Smart Brochure</span>
-              </>
-            )}
-          </button>
 
           <button
             type="button"
@@ -354,515 +344,821 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
           {/* Printable Document Sheet Container */}
           <div
             id="plan-preview-document-element"
-            className="bg-white text-slate-900 shadow-2xl rounded-2xl border border-slate-200 p-6 sm:p-8 space-y-6"
+            className="relative bg-white text-slate-900 shadow-2xl rounded-2xl border border-slate-200 overflow-hidden min-h-[1200px]"
           >
-            {/* Header: Siam Smile Official Branding */}
-            <div className="border-b-2 border-[#00509d] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded bg-[#00509d] text-white font-extrabold text-xs tracking-wider uppercase">
-                    SMILE HEALTH
-                  </span>
-                  <span className="text-xs font-bold text-slate-600">
-                    บริษัท สยามสไมล์โบรกเกอร์ (ประเทศไทย) จำกัด
-                  </span>
-                </div>
-                <h1 className="text-xl sm:text-2xl font-black text-[#003e7a] tracking-tight mt-1.5">
-                  ข้อเสนอและเปรียบเทียบผลประโยชน์ความคุ้มครอง
-                </h1>
-                <p className="text-xs text-slate-500 font-medium">
-                  Smart Brochure - เอกสารประกอบการพิจารณาเลือกแผนประกันภัยสุขภาพและอุบัติเหตุ
-                </p>
-              </div>
-
-              <div className="text-left sm:text-right text-xs text-slate-600 space-y-0.5">
-                <div className="flex sm:justify-end items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                  <span>วันที่จัดทำ: <strong className="text-slate-800">{exportMeta.date}</strong></span>
-                </div>
-                <div className="text-[11px] text-slate-500">
-                  รหัสสำนักงาน/ตัวแทน: <strong className="font-mono text-slate-700">{exportMeta.agentOfficeCode || '-'}</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Info Cards: Customer & Agent */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {/* Customer Info Card */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-1.5 font-bold text-[#00509d] mb-2 pb-1.5 border-b border-slate-200">
-                  <User className="w-4 h-4" />
-                  <span>ข้อมูลผู้เอาประกันภัย (ลูกค้า)</span>
-                </div>
-                <div className="space-y-1 text-slate-700">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">ชื่อ-นามสกุล:</span>
-                    <strong className="text-slate-900">{customerDisplayName}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">อายุผู้เอาประกัน:</span>
-                    <span className="font-medium text-slate-800">
-                      {userAge ? `${userAge} ปี` : existingCustomer ? `${existingCustomer.age} ปี` : 'ตามช่วงอายุที่กำหนด'}
-                    </span>
-                  </div>
-                  {existingCustomer && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">สถานะลูกค้า:</span>
-                        <span className="font-semibold text-blue-700">ลูกค้าเดิมในระบบ (ถือครอง {existingCustomer.policies?.length || 1} กรมธรรม์)</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">แผนสุขภาพเดิม:</span>
-                        <span className="font-semibold text-slate-800">
-                          {existingCustomerPlan?.name || existingCustomer.existingPlanId} ({existingCustomer.policyNumber})
-                        </span>
-                      </div>
-                      {/* Motor and Other Policies held by customer */}
-                      {existingCustomer.policies && existingCustomer.policies.length > 1 && (
-                        <div className="pt-1.5 mt-1 border-t border-slate-200/80 space-y-1">
-                          <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
-                            กรมธรรม์อื่นๆ ที่ถือครองร่วมกัน:
-                          </span>
-                          {existingCustomer.policies
-                            .filter((p) => p.planId !== existingCustomer.existingPlanId)
-                            .map((p, pIdx) => {
-                              const isMotor = p.policyType === 'motor' || p.vehicleDetails;
-                              const isFire = p.policyType === 'fire';
-                              return (
-                                <div
-                                  key={pIdx}
-                                  className="p-1.5 rounded bg-white border border-slate-200 flex items-center justify-between gap-1 text-[10.5px]"
-                                >
-                                  <div className="flex items-center gap-1.5 truncate">
-                                    {isMotor ? (
-                                      <Car className="w-3 h-3 text-blue-600 shrink-0" />
-                                    ) : isFire ? (
-                                      <Home className="w-3 h-3 text-amber-600 shrink-0" />
-                                    ) : (
-                                      <ShieldCheck className="w-3 h-3 text-blue-600 shrink-0" />
-                                    )}
-                                    <span className="font-medium text-slate-800 truncate">
-                                      {p.customPlanName || p.policyNumber}
-                                      {p.vehicleDetails?.licensePlate && ` (${p.vehicleDetails.licensePlate})`}
-                                    </span>
-                                  </div>
-                                  <div className="text-right shrink-0 text-slate-600">
-                                    {p.sumInsured ? (
-                                      <span className="text-[10px] text-blue-800 font-semibold">
-                                        ทุน ฿{formatCurrency(p.sumInsured)}
-                                      </span>
-                                    ) : p.annualPremium ? (
-                                      <span className="text-[10px] text-slate-700">
-                                        ฿{formatCurrency(p.annualPremium)}/ปี
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Agent & Coordinator Info Card */}
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="flex items-center gap-1.5 font-bold text-[#00509d] mb-2 pb-1.5 border-b border-slate-200">
-                  <Building2 className="w-4 h-4" />
-                  <span>ข้อมูลผู้แทนและผู้ประสานงานโครงการ</span>
-                </div>
-                <div className="space-y-1 text-slate-700">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">ผู้แทนที่ปรึกษา:</span>
-                    <strong className="text-slate-900">{agentDisplayName}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">เบอร์ติดต่อผู้แทน:</span>
-                    <span className="font-mono text-slate-800">{exportMeta.agentPhone || '-'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">ผู้ประสานงานโครงการ:</span>
-                    <span className="font-medium text-slate-900">{exportMeta.coordinatorName || '-'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">เบอร์ติดต่อผู้ประสานงาน:</span>
-                    <span className="font-mono text-slate-800">{exportMeta.coordinatorPhone || '-'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Notes / Special Remarks */}
-            {exportMeta.notes && (
-              <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-xs text-blue-950 flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-bold text-blue-900">สรุปคำแนะนำ / ข้อความเพิ่มเติม: </strong>
-                  <span>{exportMeta.notes}</span>
-                </div>
+            {/* Template Background Graphic Layer (Official Siam Smile ISO A4) */}
+            {useTemplateBg && (
+              <div className="absolute top-0 inset-x-0 pointer-events-none select-none z-0">
+                <img
+                  src="/assets/siam-smile-brochure-template.png"
+                  alt="Siam Smile Official Brochure Template"
+                  crossOrigin="anonymous"
+                  className="w-full h-auto object-cover object-top"
+                />
               </div>
             )}
 
-            {/* Comparison Matrix Table */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-left border-collapse text-xs">
-                {/* Table Header */}
-                <thead>
-                  <tr className="bg-gradient-to-r from-sky-900 via-sky-800 to-blue-900 text-white">
-                    <th className="p-3 w-[34%] font-bold text-sm border-r border-sky-700">
-                      รายการความคุ้มครองและผลประโยชน์
-                    </th>
-                    {selectedPlans.map((plan) => {
-                      const isExisting = existingCustomer?.existingPlanId === plan.id;
-                      return (
-                        <th
-                          key={plan.id}
-                          className="p-3 text-center border-r border-sky-700 align-top"
-                        >
-                          <div className="flex flex-col items-center">
-                            {isExisting && (
-                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white mb-1 shadow-2xs">
-                                แผนเดิม
-                              </span>
-                            )}
-                            <span className="text-sm font-black">{plan.code}</span>
-                            <span className="text-[11px] font-normal text-sky-200 mt-0.5">
-                              {plan.name}
-                            </span>
-                          </div>
-                        </th>
-                      );
-                    })}
-                    {combinedTotals && (
-                      <th className="p-3 text-center bg-[#094f92] text-white align-top border-l-2 border-sky-400">
-                        <div className="flex flex-col items-center">
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 mb-1 shadow-2xs">
-                            Top-up รวม
-                          </span>
-                          <span className="text-sm font-black">รวมผลประโยชน์</span>
-                          <span className="text-[11px] font-normal text-sky-200 mt-0.5">
-                            {plansForCombined.length} แผน
-                          </span>
+            {/* Document Content Layer */}
+            <div
+              className={`relative z-10 p-5 sm:p-7 md:p-8 space-y-6 ${
+                useTemplateBg ? 'pt-[225px] sm:pt-[255px] md:pt-[280px]' : ''
+              }`}
+            >
+              {/* Header: Siam Smile Official Branding (Only shown if template bg not active) */}
+              {!useTemplateBg && (
+                <div className="border-b-2 border-[#00509d] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded bg-[#00509d] text-white font-extrabold text-xs tracking-wider uppercase">
+                        SMILE HEALTH
+                      </span>
+                      <span className="text-xs font-bold text-slate-600">
+                        บริษัท สยามสไมล์โบรกเกอร์ (ประเทศไทย) จำกัด
+                      </span>
+                    </div>
+                    <h1 className="text-xl sm:text-2xl font-black text-[#003e7a] tracking-tight mt-1.5">
+                      ข้อเสนอและเปรียบเทียบผลประโยชน์ความคุ้มครอง
+                    </h1>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Smart Brochure - เอกสารประกอบการพิจารณาเลือกแผนประกันภัยสุขภาพและอุบัติเหตุ
+                    </p>
+                  </div>
+
+                  <div className="text-left sm:text-right text-xs text-slate-600 space-y-0.5">
+                    <div className="flex sm:justify-end items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span>วันที่จัดทำ: <strong className="text-slate-800">{exportMeta.date}</strong></span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      รหัสสำนักงาน/ตัวแทน: <strong className="font-mono text-slate-700">{exportMeta.agentOfficeCode || '-'}</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Comparison Matrix Table */}
+              <div className="border border-sky-200/80 rounded-xl overflow-hidden bg-white/95 backdrop-blur-2xs shadow-sm">
+                <table className="w-full text-left border-collapse text-xs">
+                  {/* Header Row */}
+                  <thead>
+                    <tr className="bg-gradient-to-r from-sky-800 via-sky-700 to-blue-800 text-white">
+                      {/* Coverage Column Header */}
+                      <th className="p-3 w-[32%] text-left font-bold text-sm tracking-wide border-r border-sky-600/50">
+                        <div className="flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-sky-200" />
+                          <span>ความคุ้มครอง</span>
                         </div>
                       </th>
-                    )}
-                  </tr>
-                </thead>
 
-                <tbody className="divide-y divide-slate-200 text-slate-800">
-                  {/* Category: Target Audience Suitability */}
-                  <tr className="bg-slate-100/90 font-bold text-slate-900">
-                    <td
-                      colSpan={selectedPlans.length + (combinedTotals ? 2 : 1)}
-                      className="py-1.5 px-3 text-[11px] uppercase tracking-wider text-[#00509d]"
-                    >
-                      ความเหมาะสมตามกลุ่มเป้าหมาย (เอกชน / ราชการรัฐวิสาหกิจ / ลูกค้าทั่วไป)
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-semibold text-xs text-blue-900 bg-blue-50/30">
-                      <div className="flex items-center gap-1.5">
-                        <Building className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                        <span>สำหรับพนักงานเอกชน (Top-up ปกส.)</span>
-                      </div>
-                    </td>
-                    {selectedPlans.map((p) => {
-                      const aud = getPlanTargetAudience(p.id, p.targetAudience);
-                      return (
-                        <td key={p.id} className="py-2 px-3 border-r border-slate-200 text-xs text-left">
-                          <div className="p-1.5 rounded bg-blue-50/60 border border-blue-100 text-[11px] text-blue-950 leading-snug">
-                            {aud.privateSector}
-                          </div>
-                        </td>
-                      );
-                    })}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 text-xs text-blue-900 font-medium">
-                        เสริมสวัสดิการ ปกส. ครบวงจร
-                      </td>
-                    )}
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-semibold text-xs text-indigo-900 bg-indigo-50/30">
-                      <div className="flex items-center gap-1.5">
-                        <Landmark className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                        <span>สำหรับข้าราชการ / รัฐวิสาหกิจ</span>
-                      </div>
-                    </td>
-                    {selectedPlans.map((p) => {
-                      const aud = getPlanTargetAudience(p.id, p.targetAudience);
-                      return (
-                        <td key={p.id} className="py-2 px-3 border-r border-slate-200 text-xs text-left">
-                          <div className="p-1.5 rounded bg-indigo-50/60 border border-indigo-100 text-[11px] text-indigo-950 leading-snug">
-                            {aud.government}
-                          </div>
-                        </td>
-                      );
-                    })}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 text-xs text-indigo-900 font-medium">
-                        เสริมสิทธิเบิกตรง & ชดเชยรายวัน
-                      </td>
-                    )}
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-semibold text-xs text-emerald-900 bg-emerald-50/30">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>สำหรับลูกค้าทั่วไป (อาชีพอิสระ)</span>
-                      </div>
-                    </td>
-                    {selectedPlans.map((p) => {
-                      const aud = getPlanTargetAudience(p.id, p.targetAudience);
-                      return (
-                        <td key={p.id} className="py-2 px-3 border-r border-slate-200 text-xs text-left">
-                          <div className="p-1.5 rounded bg-emerald-50/60 border border-emerald-100 text-[11px] text-emerald-950 leading-snug">
-                            {aud.generalPublic}
-                          </div>
-                        </td>
-                      );
-                    })}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 text-xs text-emerald-900 font-medium">
-                        คุ้มครองครบ แบ่งชำระรายเดือนสบาย
-                      </td>
-                    )}
-                  </tr>
+                      {/* Selected Plans Headers */}
+                      {selectedPlans.map((plan) => {
+                        const isExistingCustomerPlan = existingCustomer?.existingPlanId === plan.id;
+                        return (
+                          <th
+                            key={plan.id}
+                            className="p-3 text-center border-r border-sky-600/50 align-top relative"
+                          >
+                            <div className="flex flex-col items-center gap-1">
+                              {isExistingCustomerPlan && (
+                                <span className="inline-block bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[9px] uppercase px-2 py-0.5 rounded-full shadow-2xs">
+                                  แผนเดิมของลูกค้า
+                                </span>
+                              )}
+                              {plan.category === 'pa' ? (
+                                <span className="inline-block bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[9px] uppercase px-2 py-0.5 rounded-full shadow-2xs">
+                                  แผนอุบัติเหตุ PA
+                                </span>
+                              ) : (
+                                <span className="inline-block bg-sky-100 text-sky-800 border border-sky-300 font-bold text-[9px] uppercase px-2 py-0.5 rounded-full shadow-2xs">
+                                  แผนประกันสุขภาพ
+                                </span>
+                              )}
+                              <div className="inline-block bg-white/20 backdrop-blur-xs text-white px-2.5 py-0.5 rounded-md text-xs sm:text-sm font-black tracking-wide border border-sky-300/30">
+                                {plan.name}
+                              </div>
+                            </div>
+                          </th>
+                        );
+                      })}
 
-                  {/* Category: Room */}
-                  <tr className="bg-slate-100/80 font-bold text-slate-900">
-                    <td
-                      colSpan={selectedPlans.length + (combinedTotals ? 2 : 1)}
-                      className="py-1.5 px-3 text-[11px] uppercase tracking-wider text-[#00509d]"
-                    >
-                      1. ค่าห้อง ค่าอาหาร และค่าบริการพยาบาล
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      ค่าห้องและค่าอาหาร (ปกติ) / วัน
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.roomNormal.perNight)}</strong>
-                        <div className="text-[10px] text-slate-500">
-                          สูงสุด ฿{formatCurrency(p.roomNormal.maxLimit)}
-                        </div>
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.roomNormalPerNight)}
-                      </td>
-                    )}
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      ค่าห้อง ICU / วัน (สูงสุด 15 วัน)
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.roomICU.perNight)}</strong>
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.roomICUPerNight)}
-                      </td>
-                    )}
-                  </tr>
+                      {/* Combined Total Column Header */}
+                      {combinedTotals && (
+                        <th
+                          className="p-3 text-center bg-gradient-to-b from-[#094f92] via-[#00509d] to-[#003e7a] text-white border-l-2 border-sky-300 align-top shadow-md"
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            {existingCustomer ? (
+                              <span className="inline-flex items-center gap-1 bg-sky-100/90 text-sky-900 font-bold text-[10px] px-2.5 py-0.5 rounded-full border border-sky-200 shadow-2xs">
+                                <Sparkles className="w-3 h-3 text-sky-700" />
+                                กรณีลูกค้าเดิม (Top-up)
+                              </span>
+                            ) : (
+                              <span className="inline-block bg-sky-100/90 text-sky-900 font-bold text-[10px] px-2.5 py-0.5 rounded-full border border-sky-200 shadow-2xs">
+                                ความคุ้มครองรวม
+                              </span>
+                            )}
 
-                  {/* Category: Medical & Surgery */}
-                  <tr className="bg-slate-100/80 font-bold text-slate-900">
-                    <td
-                      colSpan={selectedPlans.length + (combinedTotals ? 2 : 1)}
-                      className="py-1.5 px-3 text-[11px] uppercase tracking-wider text-[#00509d]"
-                    >
-                      2. ค่ารักษาพยาบาลและการผ่าตัด (IPD)
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      ค่ารักษาพยาบาลทั่วไป / ครั้ง
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.medicalGeneralPerVisit)}</strong>
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.medicalGeneral)}
-                      </td>
-                    )}
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      ค่าแพทย์ผ่าตัดและหัตถการ / ครั้ง
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.surgeryPerDisorder)}</strong>
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.surgery)}
-                      </td>
-                    )}
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      ค่าแพทย์เยี่ยมไข้ประจำวัน / วัน
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.doctorVisitPerNight.perNight)}</strong>
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.doctorVisit)}
-                      </td>
-                    )}
-                  </tr>
+                            <div className="inline-block bg-white text-[#00509d] px-2.5 py-0.5 rounded-md text-xs sm:text-sm font-black tracking-wide shadow-xs">
+                              ช่องรวมค่ารักษาพยาบาล
+                            </div>
 
-                  {/* Category: OPD */}
-                  <tr className="bg-slate-100/80 font-bold text-slate-900">
-                    <td
-                      colSpan={selectedPlans.length + (combinedTotals ? 2 : 1)}
-                      className="py-1.5 px-3 text-[11px] uppercase tracking-wider text-[#00509d]"
-                    >
-                      3. ค่ารักษาพยาบาลผู้ป่วยนอก (OPD)
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      OPD กรณีเจ็บป่วยทั่วไป
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        {p.category === 'health' && p.opd.illness.covered ? (
-                          <div className="text-emerald-700 font-bold">
-                            ฿{formatCurrency(p.opd.illness.perVisit || 0)}/ครั้ง
-                            <div className="text-[10px] text-slate-500 font-normal">
-                              (สูงสุด {p.opd.illness.maxVisitsPerYear || 30} ครั้ง/ปี)
+                            <div className="text-[10px] text-sky-100 font-medium">
+                              {existingCustomer ? 'สิทธิประโยชน์รวมแผนเดิมและแผนใหม่' : 'สิทธิประโยชน์ความคุ้มครองรวม'}
                             </div>
                           </div>
-                        ) : (
-                          <span className="text-slate-400">- ไม่คุ้มครอง -</span>
-                        )}
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        {combinedTotals.hasOpdIllness
-                          ? `฿${formatCurrency(combinedTotals.opdIllnessPerVisit)}/ครั้ง`
-                          : '-'}
-                      </td>
-                    )}
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      OPD กรณีอุบัติเหตุฉุกเฉิน (ภายใน 24 ชม.)
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.opd.accident)}</strong>
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.opdAccident)}
-                      </td>
-                    )}
-                  </tr>
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
 
-                  {/* Category: Daily Comp & Life */}
-                  <tr className="bg-slate-100/80 font-bold text-slate-900">
-                    <td
-                      colSpan={selectedPlans.length + (combinedTotals ? 2 : 1)}
-                      className="py-1.5 px-3 text-[11px] uppercase tracking-wider text-[#00509d]"
-                    >
-                      4. ชดเชยรายวันและอุบัติเหตุ (PA)
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      เงินชดเชยรายวันกรณีรักษาตัวใน รพ. / วัน
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.dailyCompensation.perNight)}</strong>
+                  <tbody className="divide-y divide-slate-200 text-slate-800">
+                    {/* ============================================================== */}
+                    {/* SECTION 0: เกณฑ์อายุที่รับประกันภัย */}
+                    {/* ============================================================== */}
+                    <tr className="bg-slate-100/90 text-slate-800 font-bold border-b border-slate-200">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-200">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="font-semibold text-slate-900">เกณฑ์อายุที่รับประกันภัย</span>
+                        </div>
                       </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.dailyComp)}
-                      </td>
-                    )}
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-3 border-r border-slate-200 font-medium">
-                      ความคุ้มครองชีวิตและอุบัติเหตุทั่วไป (อบ.1)
-                    </td>
-                    {selectedPlans.map((p) => (
-                      <td key={p.id} className="py-2 px-3 text-center border-r border-slate-200">
-                        <strong>฿{formatCurrency(p.life.accidentGeneral)}</strong>
-                      </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="py-2 px-3 text-center bg-blue-50/50 font-bold text-blue-900">
-                        ฿{formatCurrency(combinedTotals.lifeAccident)}
-                      </td>
-                    )}
-                  </tr>
-                </tbody>
+                      {selectedPlans.map((plan) => {
+                        const isMatchAge =
+                          userAge !== null && userAge !== undefined
+                            ? userAge >= plan.minAge && userAge <= plan.maxAge
+                            : true;
+                        return (
+                          <td
+                            key={plan.id}
+                            className="py-2 px-3 sm:px-4 text-center border-r border-slate-200 text-xs"
+                          >
+                            <span className="font-bold text-slate-800 block">{plan.ageRangeText}</span>
+                            {userAge !== null && userAge !== undefined && (
+                              <span
+                                className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                                  isMatchAge
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                }`}
+                              >
+                                {isMatchAge ? 'ตรงเกณฑ์' : 'ไม่ตรงเกณฑ์'}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] text-xs border-l-2 border-[#b9ddf8] font-bold text-[#00509d]">
+                          {combinedTotals.minEligibleAge} - {combinedTotals.maxEligibleAge} ปี
+                          <span className="block text-[10px] text-sky-700 font-normal">
+                            (ช่วงอายุที่สมัครคู่กันได้)
+                          </span>
+                        </td>
+                      )}
+                    </tr>
 
-                {/* Table Footer: Premiums */}
-                <tfoot>
-                  <tr className="bg-gradient-to-r from-sky-950 via-slate-900 to-blue-950 text-white border-t-2 border-sky-400">
-                    <td className="p-3.5 font-bold text-sm border-r border-sky-800">
-                      <div>อัตราเบี้ยประกันภัย</div>
-                      <div className="text-[10px] text-sky-300 font-normal">
-                        รวมภาษีมูลค่าเพิ่มและอากรแสตมป์
-                      </div>
-                    </td>
-                    {selectedPlans.map((plan) => (
-                      <td
-                        key={plan.id}
-                        className="p-3 text-center border-r border-sky-800 align-middle"
-                      >
-                        <div className="text-base sm:text-lg font-black text-white">
-                          ฿{formatCurrency(plan.monthlyPremium)}
-                          <span className="text-[11px] font-normal text-sky-200 ml-1">/เดือน</span>
-                        </div>
-                        <div className="text-[10px] text-sky-300 font-semibold mt-0.5">
-                          ฿{formatCurrency(plan.annualPremium)} /ปี
+                    {/* ============================================================== */}
+                    {/* SECTION 1: ค่าห้อง ค่าอาหาร และค่าบริการพยาบาล */}
+                    {/* ============================================================== */}
+                    <tr className="bg-gradient-to-r from-sky-600 via-sky-500 to-sky-600 text-white font-bold border-y border-sky-400/60 shadow-xs">
+                      <td colSpan={totalColumnsCount} className="py-2.5 px-3 sm:px-4 text-xs md:text-sm">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-white shrink-0 drop-shadow-2xs" />
+                          <span className="drop-shadow-2xs">ส่วนที่ 1 : ความคุ้มครองค่าห้อง ค่าอาหาร และค่าบริการพยาบาล</span>
                         </div>
                       </td>
-                    ))}
-                    {combinedTotals && (
-                      <td className="p-3 text-center bg-[#002f5c] text-white border-l-2 border-sky-300 align-middle">
-                        <div className="text-base sm:text-lg font-black text-amber-300">
-                          ฿{formatCurrency(combinedTotals.monthlyPremium)}
-                          <span className="text-[11px] font-normal text-sky-200 ml-1">/เดือน</span>
+                    </tr>
+
+                    {/* Subsection 1 Header */}
+                    <tr className="bg-slate-100/80 font-bold text-slate-800 border-y border-slate-200 text-xs">
+                      <td colSpan={totalColumnsCount} className="py-1.5 px-3 sm:px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>
+                          <span>1. ค่าห้อง ค่าอาหาร และค่าบริการพยาบาล กรณีผู้ป่วยใน</span>
                         </div>
-                        <div className="text-[10px] text-sky-200 font-semibold mt-0.5">
-                          ฿{formatCurrency(combinedTotals.annualPremium)} /ปี
+                      </td>
+                    </tr>
+
+                    {/* Row 1.1 */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          1.1 ค่าห้อง ค่าอาหาร และค่าบริการพยาบาล ผู้ป่วยปกติ ต่อคืน
                         </div>
-                        {existingCustomer && combinedTotals.addedMonthly > 0 && (
-                          <div className="text-[9.5px] font-bold text-sky-100 bg-sky-900/90 py-0.5 px-1.5 rounded mt-1 border border-sky-400/40">
-                            จ่ายเพิ่มเพียง +฿{formatCurrency(combinedTotals.addedMonthly)}/เดือน
+                        <div className="text-[10px] sm:text-[11px] text-sky-600 font-normal">
+                          สูงสุดไม่เกิน 45 คืนต่อครั้ง ต่อโรค
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.roomNormal.perNight)}
                           </div>
-                        )}
+                          <div className="text-[10.5px] font-semibold text-sky-600">
+                            {formatCurrency(plan.roomNormal.maxLimit)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.roomNormalPerNight)}
+                          </div>
+                          <div className="text-[10.5px] font-bold text-sky-700">
+                            {formatCurrency(combinedTotals.roomNormalMaxLimit)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 1.2 */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          1.2 ค่าห้อง ค่าอาหาร และค่าบริการพยาบาล ผู้ป่วยหนัก (ICU) ต่อคืน
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-sky-600 font-normal">
+                          สูงสุดไม่เกิน 15 วัน
+                        </div>
                       </td>
-                    )}
-                  </tr>
-                </tfoot>
-              </table>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.roomICU.perNight)}
+                          </div>
+                          <div className="text-[10.5px] font-semibold text-sky-600">
+                            {formatCurrency(plan.roomICU.maxLimit)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.roomICUPerNight)}
+                          </div>
+                          <div className="text-[10.5px] font-bold text-sky-700">
+                            {formatCurrency(combinedTotals.roomICUMaxLimit)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 1.3 */}
+                    <tr className="bg-sky-50/50 border-b border-sky-100 hover:bg-sky-50 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-semibold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                          <span>1.3 รวมวงเงินค่าห้องปกติ + ICU สูงสุดต่อครั้ง</span>
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-slate-500">
+                          (คำนวณจากห้องปกติ 45 คืน + ICU 30 คืน)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => {
+                        const planRoomMax = plan.roomNormal.maxLimit + plan.roomICU.maxLimit;
+                        return (
+                          <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100 font-semibold text-sky-800 text-xs sm:text-sm">
+                            {formatCurrency(planRoomMax)}
+                          </td>
+                        );
+                      })}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#e5f1fc] border-l-2 border-[#9eccf5]">
+                          <div className="font-black text-[#003e7a] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.roomCombinedMaxLimit)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* ============================================================== */}
+                    {/* SECTION 2: ค่ารักษาพยาบาลทั่วไป และ การผ่าตัด */}
+                    {/* ============================================================== */}
+                    <tr className="bg-gradient-to-r from-sky-600 via-sky-500 to-sky-600 text-white font-bold border-y border-sky-400/60 shadow-xs">
+                      <td colSpan={totalColumnsCount} className="py-2.5 px-3 sm:px-4 text-xs md:text-sm">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-white shrink-0 drop-shadow-2xs" />
+                          <span className="drop-shadow-2xs">ส่วนที่ 2 : ความคุ้มครองค่ารักษาพยาบาลทั่วไป และ การผ่าตัด (IPD)</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Subsection 2 Header */}
+                    <tr className="bg-slate-100/80 font-bold text-slate-800 border-y border-slate-200 text-xs">
+                      <td colSpan={totalColumnsCount} className="py-1.5 px-3 sm:px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>
+                          <span>2. ค่ารักษาพยาบาล กรณีผู้ป่วยใน</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row 2.1 */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          2.1 ค่ารักษาพยาบาล และค่าบริการทั่วไป ต่อครั้ง
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.medicalGeneralPerVisit)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.medicalGeneral)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 2.2 */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          2.2 การรักษาโดยการผ่าตัด ต่อโรค
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-slate-500">
+                          (เบิกตามค่าใช้จ่ายจริง ไม่เกินวงเงินในแผน)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.surgeryPerDisorder)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.surgery)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 2.3 */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          2.3 การดูแลโดยแพทย์ (ค่าแพทย์เยี่ยมไข้ ผู้ป่วยใน) สูงสุดต่อคืน
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-sky-600 font-normal">
+                          สูงสุดไม่เกิน 45 คืน ต่อครั้ง ต่อโรค
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.doctorVisitPerNight.perNight)}
+                          </div>
+                          <div className="text-[10.5px] font-semibold text-sky-600">
+                            {formatCurrency(plan.doctorVisitPerNight.maxLimit)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.doctorVisitPerNight)}
+                          </div>
+                          <div className="text-[10.5px] font-bold text-sky-700">
+                            {formatCurrency(combinedTotals.doctorVisitMaxLimit)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 2.4 - Subtotal Inpatient */}
+                    <tr className="bg-[#f0f7fd]/70 border-b border-sky-200 hover:bg-sky-50 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="flex items-center gap-1.5 text-sky-950 font-bold">
+                          <HeartPulse className="w-3.5 h-3.5 text-[#00509d] shrink-0" />
+                          <span>2.4 รวมค่ารักษาพยาบาลผู้ป่วยใน (ค่ารักษาทั่วไป + ค่าผ่าตัด)</span>
+                        </div>
+                        <div className="text-[10px] text-sky-700 font-semibold mt-0.5">
+                          {existingCustomer
+                            ? `⭐ รวมค่ารักษาพยาบาลกรณีลูกค้าเดิม (Top-up เพิ่มจากแผนเดิม ${existingCustomerPlan?.code || ''})`
+                            : '⭐ รวมค่ารักษาทั่วไป + ค่าผ่าตัด ต่อการรักษาครั้งหนึ่ง'}
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => {
+                        const planMedicalSubtotal = plan.medicalGeneralPerVisit + plan.surgeryPerDisorder;
+                        return (
+                          <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                            <div className="font-extrabold text-slate-900 text-xs sm:text-sm">
+                              {formatCurrency(planMedicalSubtotal)}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#e5f1fc] border-l-2 border-[#9eccf5]">
+                          <div className="font-black text-[#003e7a] text-xs sm:text-sm md:text-base">
+                            {formatCurrency(combinedTotals.inpatientMedicalSubtotal)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 2.5 - Max Inpatient Limit */}
+                    <tr className="bg-sky-50/40 border-b border-slate-200 hover:bg-sky-100/40 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="flex items-center gap-1.5 text-slate-900 font-bold">
+                          <Activity className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span>2.5 รวมผลประโยชน์ค่ารักษาผู้ป่วยในสูงสุด ต่อครั้ง ต่อโรค</span>
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-slate-500">
+                          (รวมค่าห้องปกติ 45 คืน + ค่ารักษาทั่วไป + ผ่าตัด + ค่าแพทย์ 45 คืน)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => {
+                        const planInpatientMax =
+                          plan.roomNormal.maxLimit +
+                          plan.medicalGeneralPerVisit +
+                          plan.surgeryPerDisorder +
+                          plan.doctorVisitPerNight.maxLimit;
+                        return (
+                          <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                            <div className="font-black text-blue-900 text-xs sm:text-sm">
+                              {formatCurrency(planInpatientMax)}
+                            </div>
+                          </td>
+                        );
+                      })}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#e5f1fc] border-l-2 border-[#9eccf5]">
+                          <div className="font-black text-[#003e7a] text-xs sm:text-sm md:text-base">
+                            {formatCurrency(combinedTotals.inpatientMedicalMaxLimit)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* ============================================================== */}
+                    {/* SECTION 3: ค่ารักษาพยาบาลฉุกเฉิน และ OPD */}
+                    {/* ============================================================== */}
+                    <tr className="bg-gradient-to-r from-sky-600 via-sky-500 to-sky-600 text-white font-bold border-y border-sky-400/60 shadow-xs">
+                      <td colSpan={totalColumnsCount} className="py-2.5 px-3 sm:px-4 text-xs md:text-sm">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-white shrink-0 drop-shadow-2xs" />
+                          <span className="drop-shadow-2xs">ส่วนที่ 3 : ความคุ้มครองค่ารักษาพยาบาลฉุกเฉิน และ OPD</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Subsection 3 Header */}
+                    <tr className="bg-slate-100/80 font-bold text-slate-800 border-y border-slate-200 text-xs">
+                      <td colSpan={totalColumnsCount} className="py-1.5 px-3 sm:px-4">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0"></span>
+                          <span>3. ค่ารักษาพยาบาลฉุกเฉิน และ ผู้ป่วยนอก</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row 3.1 - Emergency Accident */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          3.1 ค่ารักษาพยาบาลฉุกเฉินเนื่องจากอุบัติเหตุ (ภายใน 24 ชม.)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.opd.accident)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.opdAccident)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 3.2 - OPD General Illness */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          3.2 ค่ารักษาพยาบาลผู้ป่วยนอก (OPD โรคทั่วไป) ต่อครั้ง
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          (สูงสุดตามเงื่อนไขของแต่ละแผน)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          {plan.category === 'health' && plan.opd.illness.covered ? (
+                            <div>
+                              <div className="font-bold text-emerald-700 text-xs sm:text-sm">
+                                {formatCurrency(plan.opd.illness.perVisit || 0)}
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                (สูงสุด {plan.opd.illness.maxVisitsPerYear || 30} ครั้ง/ปี)
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">- ไม่คุ้มครอง -</span>
+                          )}
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          {combinedTotals.hasOpdIllness ? (
+                            <div className="font-black text-emerald-800 text-xs sm:text-sm">
+                              {formatCurrency(combinedTotals.opdIllnessPerVisit)}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">-</span>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 3.3 - Dialysis/Chemo */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          3.3 ค่าล้างไต / เคมีบำบัด / รังสีรักษา
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <span className="text-xs text-slate-700">
+                            {plan.category === 'health' ? 'คุ้มครองตามจริงในวงเงิน' : '- ไม่คุ้มครอง -'}
+                          </span>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8] text-xs font-semibold text-blue-900">
+                          คุ้มครองตามจริงในวงเงิน
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* ============================================================== */}
+                    {/* SECTION 4: ผลประโยชน์การเสียชีวิต สูญเสียอวัยวะ และอุบัติเหตุ (PA) */}
+                    {/* ============================================================== */}
+                    <tr className="bg-gradient-to-r from-sky-600 via-sky-500 to-sky-600 text-white font-bold border-y border-sky-400/60 shadow-xs">
+                      <td colSpan={totalColumnsCount} className="py-2.5 px-3 sm:px-4 text-xs md:text-sm">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-white shrink-0 drop-shadow-2xs" />
+                          <span className="drop-shadow-2xs">ส่วนที่ 4 : ผลประโยชน์การเสียชีวิต สูญเสียอวัยวะ และอุบัติเหตุ (PA)</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row 4.1 - Accident General */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          4.1 กรณีเสียชีวิต สูญเสียอวัยวะ หรือทุพพลภาพถาวรสิ้นเชิง จากอุบัติเหตุทั่วไป (อบ.2)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.life.accidentGeneral)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.lifeAccident)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 4.2 - Motorcycle */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          4.2 กรณีขับขี่หรือโดยสารรถจักรยานยนต์
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.life.motorcycle)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.lifeMotorcycle)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 4.3 - Murder */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          4.3 กรณีถูกฆาตกรรม หรือถูกทำร้ายร่างกาย
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                            {formatCurrency(plan.life.murderAssault)}
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.lifeMurder)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 4.4 - Funeral Benefit */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          4.4 ค่าปลงศพหรือจัดการงานศพ กรณีเสียชีวิตจากการเจ็บป่วย
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-normal">
+                          (ระยะเวลารอคอย 180 วัน)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          {plan.category === 'pa' ? (
+                            <div>
+                              <div className="text-slate-400 font-medium text-xs">-</div>
+                              <div className="text-[10px] text-slate-400">ไม่มีค่าปลงศพ</div>
+                            </div>
+                          ) : (
+                            <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                              {formatCurrency(plan.life.funeralBenefit)}
+                            </div>
+                          )}
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                            {formatCurrency(combinedTotals.lifeFuneral)}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* ============================================================== */}
+                    {/* SECTION 5: สิทธิประโยชน์พิเศษ และ ค่าชดเชยรายวัน */}
+                    {/* ============================================================== */}
+                    <tr className="bg-gradient-to-r from-sky-600 via-sky-500 to-sky-600 text-white font-bold border-y border-sky-400/60 shadow-xs">
+                      <td colSpan={totalColumnsCount} className="py-2.5 px-3 sm:px-4 text-xs md:text-sm">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-white shrink-0 drop-shadow-2xs" />
+                          <span className="drop-shadow-2xs">ส่วนที่ 5 : สิทธิประโยชน์พิเศษ และ ค่าชดเชยรายวัน</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row 5.1 - Daily Compensation */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          5.1 เงินชดเชยรายวันระหว่างรักษาตัวในโรงพยาบาล (IPD) สูงสุด 365 วัน
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          {plan.dailyCompensation.perNight > 0 ? (
+                            <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                              {formatCurrency(plan.dailyCompensation.perNight)}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">- ไม่มีสิทธิ์ -</span>
+                          )}
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          {combinedTotals.dailyComp > 0 ? (
+                            <div className="font-black text-[#00509d] text-xs sm:text-sm">
+                              {formatCurrency(combinedTotals.dailyComp)}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">-</span>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Row 5.2 - Cashless Card */}
+                    <tr className="border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2 px-3 sm:px-4 text-xs border-r border-slate-100 pl-5 sm:pl-6">
+                        <div className="text-slate-800 font-medium">
+                          5.3 บริการประสานงานสินไหมและเครือข่ายโรงพยาบาล (Cashless Card)
+                        </div>
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td key={plan.id} className="py-2 px-3 sm:px-4 text-center border-r border-slate-100">
+                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                            ใช้สิทธิ์ได้ไม่ต้องสำรองจ่าย
+                          </span>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8]">
+                          <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800">
+                            บัตรเดียวครอบคลุมทุกแผน
+                          </span>
+                        </td>
+                      )}
+                    </tr>
+                  </tbody>
+
+                  {/* Table Footer: สอดคล้องกับ ComparisonTable */}
+                  <tfoot>
+                    {/* หัวแถว: เบี้ยประกันภัย */}
+                    <tr className="bg-gradient-to-r from-sky-800 via-sky-700 to-blue-800 text-white border-t-2 border-sky-400">
+                      <td
+                        colSpan={totalColumnsCount}
+                        className="py-2.5 px-3 sm:px-4 font-bold text-xs tracking-wide text-white"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-sky-200" />
+                          <span>เบี้ยประกันภัย (ชำระรายเดือน / ชำระรายปี)</span>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* แถวที่ 1: รายเดือน */}
+                    <tr className="bg-white border-b border-slate-100 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5 px-3 sm:px-4 text-xs border-r border-slate-100 font-bold text-slate-800">
+                        รายเดือน
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td
+                          key={plan.id}
+                          className="py-2.5 px-3 sm:px-4 text-center border-r border-slate-100 align-middle"
+                        >
+                          <div className="text-sm font-extrabold text-[#00509d]">
+                            {formatCurrency(plan.monthlyPremium)}{' '}
+                            <span className="text-xs font-normal text-slate-500">บาท/เดือน</span>
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2.5 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8] align-middle">
+                          <div className="text-sm font-extrabold text-[#00509d]">
+                            {formatCurrency(combinedTotals.monthlyPremium)}{' '}
+                            <span className="text-xs font-normal text-slate-500">บาท/เดือน</span>
+                          </div>
+                          {existingCustomer && combinedTotals.addedMonthly > 0 && (
+                            <div className="text-[10px] font-bold text-sky-800 mt-0.5">
+                              (เพิ่ม +{formatCurrency(combinedTotals.addedMonthly)} บาท/เดือน)
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* แถวที่ 2: รายปี */}
+                    <tr className="bg-white border-b border-slate-200 hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5 px-3 sm:px-4 text-xs border-r border-slate-100 font-bold text-slate-800">
+                        รายปี
+                      </td>
+                      {selectedPlans.map((plan) => (
+                        <td
+                          key={plan.id}
+                          className="py-2.5 px-3 sm:px-4 text-center border-r border-slate-100 align-middle"
+                        >
+                          <div className="text-sm font-extrabold text-[#00509d]">
+                            {formatCurrency(plan.annualPremium)}{' '}
+                            <span className="text-xs font-normal text-slate-500">บาท/ปี</span>
+                          </div>
+                        </td>
+                      ))}
+                      {combinedTotals && (
+                        <td className="py-2.5 px-3 sm:px-4 text-center bg-[#f0f7fd] border-l-2 border-[#b9ddf8] align-middle">
+                          <div className="text-sm font-extrabold text-[#00509d]">
+                            {formatCurrency(combinedTotals.annualPremium)}{' '}
+                            <span className="text-xs font-normal text-slate-500">บาท/ปี</span>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  </tfoot>
+                </table>
             </div>
 
             {/* Terms and Exceptions Component */}
@@ -870,34 +1166,37 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
               <PolicyTermsNotice
                 coordinatorName={exportMeta.coordinatorName}
                 coordinatorPhone={exportMeta.coordinatorPhone}
+                className="bg-white/95 backdrop-blur-2xs border-sky-200/80 shadow-xs"
               />
             </div>
 
-            {/* Signatures & Consent */}
-            <div className="pt-4 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-8 text-xs text-slate-700">
-              <div className="text-center space-y-3">
-                <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto pt-8" />
-                <p className="font-semibold text-slate-800">
-                  (ลงชื่อ) ............................................................................ ผู้เอาประกันภัย / ลูกค้า
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  วันที่ .......... / .......... / ....................
-                </p>
+            {/* Official Siam Smile Template Footer */}
+            {useTemplateBg && (
+              <div className="pt-3 pb-1 text-[11px] text-slate-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-sky-100">
+                <div className="flex flex-col items-start text-left gap-0.5">
+                  <span className="font-medium text-slate-600">บริษัท สยามสไมล์โบรกเกอร์ (ประเทศไทย) จำกัด</span>
+                  <span className="text-sky-800 font-semibold">ศูนย์บริการลูกค้าสัมพันธ์ สยามสไมล์ โทร. 1434 • www.siamsmile.co.th</span>
+                </div>
+                <div className="text-left sm:text-right text-[11px] text-slate-600 space-y-0.5 shrink-0">
+                  <div className="flex sm:justify-end items-center gap-1.5 font-bold text-slate-800 text-[11px]">
+                    <Calendar className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>วันที่จัดทำ: {exportMeta.date}</span>
+                  </div>
+                  <div className="text-slate-800 font-semibold flex sm:justify-end items-center gap-1 text-[11px]">
+                    <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>ผู้แทน: <strong className="text-blue-950 font-bold">{agentDisplayName}</strong></span>
+                  </div>
+                  <div className="text-[10px] text-slate-600 flex sm:justify-end items-center gap-1">
+                    <Phone className="w-3 h-3 text-sky-600 shrink-0" />
+                    <span>เบอร์โทรศัพท์: <strong className="font-mono text-slate-800">{exportMeta.agentPhone || '-'}</strong></span>
+                  </div>
+                </div>
               </div>
-
-              <div className="text-center space-y-3">
-                <div className="border-b border-dotted border-slate-400 w-3/4 mx-auto pt-8" />
-                <p className="font-semibold text-slate-800">
-                  (ลงชื่อ) ............................................................................ ตัวแทน / ที่ปรึกษาประกันภัย
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {agentDisplayName} (รหัส: {exportMeta.agentOfficeCode || '-'})
-                </p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
