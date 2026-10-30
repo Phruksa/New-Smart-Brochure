@@ -1175,7 +1175,7 @@ export const PlanPreviewModal: React.FC<PlanPreviewModalProps> = ({
               <div className="pt-3 pb-1 text-[11px] text-slate-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-sky-100">
                 <div className="flex flex-col items-start text-left gap-0.5">
                   <span className="font-medium text-slate-600">บริษัท สยามสไมล์โบรกเกอร์ (ประเทศไทย) จำกัด</span>
-                  <span className="text-sky-800 font-semibold">ศูนย์บริการลูกค้าสัมพันธ์ สยามสไมล์ โทร. 1434 • www.siamsmile.co.th</span>
+                  <span className="text-sky-800 font-semibold">Call Center 1434 บริการ 24 ชั่วโมง • Line ID : @siamsmile</span>
                 </div>
                 <div className="text-left sm:text-right text-[11px] text-slate-600 space-y-0.5 shrink-0">
                   <div className="flex sm:justify-end items-center gap-1.5 font-bold text-slate-800 text-[11px]">

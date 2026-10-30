@@ -21,6 +21,8 @@ import {
   Briefcase,
   Minus,
   Plus,
+  Car,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface SmileSaleSearchCardProps {
@@ -36,6 +38,7 @@ interface SmileSaleSearchCardProps {
   existingCustomer?: CustomerProfile | null;
   currentAge?: number | null;
   initialPayerType?: PayerOrganizationType;
+  onSwitchToMotor?: () => void;
 }
 
 export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
@@ -46,6 +49,7 @@ export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
   existingCustomer = null,
   currentAge = null,
   initialPayerType = 'government',
+  onSwitchToMotor,
 }) => {
   // Payer Organization Type (ประเภทหน่วยงานผู้ชำระเบี้ย: ข้าราชการและรัฐวิสาหกิจ, หน่วยงานเอกชน, ลูกค้าทั่วไป)
   const [payerType, setPayerType] = useState<PayerOrganizationType>(initialPayerType);
@@ -178,10 +182,40 @@ export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
     <div className="w-full">
       {/* Outer light blue container - sleek & compact */}
       <div className="bg-[#ebf4fa] rounded-xl p-3 sm:p-4 md:p-5 border border-[#d6e7f5]">
-        {/* Section title */}
-        <h2 className="text-center font-bold text-slate-800 text-sm sm:text-base mb-2">
-          เช็คราคาประกันสุขภาพ
-        </h2>
+        {/* Section title & Category toggle */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#00509d] text-white flex items-center justify-center shadow-xs">
+              <ShieldCheck className="w-4 h-4 text-sky-200" />
+            </div>
+            <div>
+              <h2 className="font-extrabold text-slate-800 text-sm sm:text-base leading-tight">
+                เช็คราคาประกันสุขภาพ
+              </h2>
+            </div>
+          </div>
+
+          {/* Toggle between Health & Motor check */}
+          {onSwitchToMotor && (
+            <div className="flex items-center bg-white p-1 rounded-xl border border-sky-200/80 shadow-2xs text-xs font-bold">
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg bg-[#00509d] text-white shadow-xs flex items-center gap-1.5 font-extrabold"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-sky-200" />
+                <span>เช็คราคาประกันสุขภาพ</span>
+              </button>
+              <button
+                type="button"
+                onClick={onSwitchToMotor}
+                className="px-3 py-1.5 rounded-lg text-slate-600 hover:text-blue-700 hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Car className="w-3.5 h-3.5 text-blue-600" />
+                <span>เช็คราคาประกันรถยนต์</span>
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Inner white card - compact width & padding */}
         <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 p-3.5 sm:p-4 md:p-5 max-w-xl mx-auto">

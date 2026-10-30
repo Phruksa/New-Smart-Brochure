@@ -10,6 +10,9 @@ import { ViewFilterMode, ExportMeta, CustomerProfile, ComparisonHistoryItem, Ins
 import { SmileSaleSidebar } from './components/SmileSaleSidebar';
 import { SmileSaleHeader } from './components/SmileSaleHeader';
 import { SmileSaleSearchCard } from './components/SmileSaleSearchCard';
+import { SmileMotorSearchCard, MotorSearchParams } from './components/SmileMotorSearchCard';
+import { SmileMotorPlansSection } from './components/SmileMotorPlansSection';
+import { SmileMotorPlan, generateSmileMotorPlans } from './data/motorData';
 import { PlanSelector } from './components/PlanSelector';
 import { ComparisonTable } from './components/ComparisonTable';
 import { ExportModal } from './components/ExportModal';
@@ -73,6 +76,14 @@ export default function App() {
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [currentView, setCurrentView] = useState<'selection' | 'comparison' | 'premium-code'>('selection');
   const [premiumCodeType, setPremiumCodeType] = useState<InsuranceTypeCode>('life');
+
+  // Insurance Product Category: 'health' (Smile Health) | 'motor' (Smile Motor)
+  const [insuranceCategory, setInsuranceCategory] = useState<'health' | 'motor'>('health');
+  const [motorSearchParams, setMotorSearchParams] = useState<MotorSearchParams | null>(null);
+  const [motorPlans, setMotorPlans] = useState<SmileMotorPlan[]>(() =>
+    generateSmileMotorPlans('TOYOTA', 'Yaris Ativ', 2024, '110 (รถยนต์นั่งส่วนบุคคลไม่เกิน 7 ที่นั่ง)', 600000)
+  );
+  const [motorViewMode, setMotorViewMode] = useState<'selection' | 'comparison'>('selection');
 
   const [filterMode, setFilterMode] = useState<ViewFilterMode>('all');
   const [highlightDiffs, setHighlightDiffs] = useState<boolean>(true);
@@ -413,7 +424,15 @@ export default function App() {
           setActiveMenu(menu);
           if (menu === 'benefits-ph' || menu === 'plan-settings') {
             setIsPlanSettingsOpen(true);
+          } else if (menu === 'benefits-motor') {
+            setInsuranceCategory('motor');
+            setMotorViewMode('selection');
+            setCurrentView('selection');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('เปิดระบบเช็คราคาประกันรถยนต์ Smile Motor');
           } else if (menu === 'smart-brochure') {
+            setInsuranceCategory('health');
+            setMotorViewMode('selection');
             setCurrentView('selection');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           } else if (menu === 'code-life') {
@@ -482,63 +501,134 @@ export default function App() {
               onAssignPlanToCustomer={handleAssignPlanToCustomer}
             />
           ) : currentView === 'selection' ? (
-            <>
-              {/* Centered Hero Header exactly as in screenshot */}
-              <section className="text-center pt-1 sm:pt-2">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  ทำประกัน<span className="text-[#0088cc]">สุขภาพ</span>กับสยามสไมล์
-                </h1>
-                <p className="text-xs sm:text-sm md:text-base text-slate-600 font-medium mt-1.5">
-                  "Smile Health สุขภาพ อุบัติเหตุ โรคร้ายแรง ชำระรายเดือนได้"
-                </p>
-                <div className="border-b border-dotted border-[#9dc4e8] w-full max-w-3xl mx-auto my-3.5" />
-              </section>
+            insuranceCategory === 'motor' ? (
+              <>
+                {/* Motor Hero Header & Search Card: ตัดออกเมื่อกดเปรียบเทียบ */}
+                {motorViewMode === 'selection' && (
+                  <>
+                    {/* Motor Hero Header */}
+                    <section className="text-center pt-1 sm:pt-2">
+                      <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                        ทำประกัน<span className="text-[#0088cc]">รถยนต์</span>กับสยามสไมล์
+                      </h1>
+                      <p className="text-xs sm:text-sm md:text-base text-[#00509d] font-bold mt-1.5">
+                        "ประกันรถยนต์ ขับขี่ปลอดภัย Smile Motor ชำระรายเดือนคุ้มครองเหมือนรายปี"
+                      </p>
+                      <div className="border-b border-dotted border-[#9dc4e8] w-full max-w-3xl mx-auto my-3.5" />
+                    </section>
 
-              {/* Search / Price Check Card (เช็คราคาประกันสุขภาพ) */}
-              <section aria-label="เช็คราคาประกันสุขภาพ">
-                <SmileSaleSearchCard
-                  onConfirmAge={handleConfirmAge}
-                  onReset={handleResetSearch}
-                  allPlans={plans}
-                  initialDob={userDob}
-                  existingCustomer={existingCustomer}
-                  currentAge={userAge}
-                  initialPayerType={payerType}
+                    {/* Motor Search / Price Check Card (เช็คราคาประกันรถยนต์) */}
+                    <section aria-label="เช็คราคาประกันรถยนต์">
+                      <SmileMotorSearchCard
+                        onSearch={(params, generatedPlans) => {
+                          setMotorSearchParams(params);
+                          setMotorPlans(generatedPlans);
+                          showToast(`พบข้อเสนอประกันภัยรถยนต์ ${params.brand} ${params.model} (${generatedPlans.length} แผน)`);
+                        }}
+                        onReset={() => {
+                          setMotorSearchParams(null);
+                          setMotorPlans(generateSmileMotorPlans('TOYOTA', 'Yaris Ativ', 2024, '110 (รถยนต์นั่งส่วนบุคคลไม่เกิน 7 ที่นั่ง)', 600000));
+                          showToast('รีเซ็ตข้อมูลประกันรถยนต์เรียบร้อยแล้ว');
+                        }}
+                        onSwitchToHealth={() => {
+                          setInsuranceCategory('health');
+                          setMotorViewMode('selection');
+                          showToast('เปลี่ยนเป็นระบบเช็คราคาประกันสุขภาพ Smile Health');
+                        }}
+                        initialParams={motorSearchParams || undefined}
+                      />
+                    </section>
+
+                    {/* Section: "แพ็กเกจและความคุ้มครอง" (เหมือนกับประกันสุขภาพ) */}
+                    <section className="pt-2">
+                      <div className="text-center mb-4">
+                        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
+                          แพ็กเกจและความคุ้มครอง
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-1">
+                          เลือกแผนที่สนใจ (สูงสุดไม่เกิน 3 แผน) แล้วกดปุ่ม <strong>"กดเปรียบเทียบแผน"</strong> เพื่อดูรายละเอียด
+                        </p>
+                      </div>
+                    </section>
+                  </>
+                )}
+
+                {/* Motor Plans & Comparison Section */}
+                <SmileMotorPlansSection
+                  plans={motorPlans}
+                  searchParams={motorSearchParams}
+                  viewMode={motorViewMode}
+                  onViewModeChange={setMotorViewMode}
+                  onOpenPreview={(selected) => {
+                    showToast(`พรีวิวโบรชัวร์ Smile Motor (${selected.length} แผน)`);
+                  }}
+                  onShowToast={showToast}
                 />
-              </section>
-
-              {/* Section: "แพ็กเกจและความคุ้มครอง" (เลือกแผนก่อน ไม่เกิน 3 แผน แล้วค่อยกดเปรียบเทียบ) */}
-              <section className="pt-2">
-                <div className="text-center mb-5">
-                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
-                    แพ็กเกจและความคุ้มครอง
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-1">
-                    เลือกแผนที่สนใจ (สูงสุดไม่เกิน 3 แผน) แล้วกดปุ่ม <strong>"กดเปรียบเทียบแผน"</strong> เพื่อดูรายละเอียด
+              </>
+            ) : (
+              <>
+                {/* Centered Hero Header for Health Insurance */}
+                <section className="text-center pt-1 sm:pt-2">
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+                    ทำประกัน<span className="text-[#0088cc]">สุขภาพ</span>กับสยามสไมล์
+                  </h1>
+                  <p className="text-xs sm:text-sm md:text-base text-[#00509d] font-bold mt-1.5">
+                    "Smile Health สุขภาพ อุบัติเหตุ โรคร้ายแรง ชำระรายเดือนได้"
                   </p>
-                </div>
+                  <div className="border-b border-dotted border-[#9dc4e8] w-full max-w-3xl mx-auto my-3.5" />
+                </section>
 
-                {/* Plan Selector (15-I, 15-O, 610-I, 610-O, PA 60, PA 90, PA 120, PA 150) */}
-                <div className="mb-4">
-                  <PlanSelector
+                {/* Search / Price Check Card (เช็คราคาประกันสุขภาพ) */}
+                <section aria-label="เช็คราคาประกันสุขภาพ">
+                  <SmileSaleSearchCard
+                    onConfirmAge={handleConfirmAge}
+                    onReset={handleResetSearch}
                     allPlans={plans}
-                    selectedPlanIds={selectedPlanIds}
-                    onTogglePlan={handleTogglePlan}
-                    onSetSelection={handleSetSelection}
-                    onViewPlanDetail={handleViewPlanDetail}
-                    currentAge={userAge}
+                    initialDob={userDob}
                     existingCustomer={existingCustomer}
-                    onResetCustomer={handleResetSearch}
-                    onOpenPlanSettings={() => setIsPlanSettingsOpen(true)}
-                    onGoToComparison={handleGoToComparison}
-                    onAssignPlanToCustomer={handleAssignPlanToCustomer}
-                    onShowToast={showToast}
-                    payerType={payerType}
-                    isSearchActive={isSearchActive}
+                    currentAge={userAge}
+                    initialPayerType={payerType}
+                    onSwitchToMotor={() => {
+                      setInsuranceCategory('motor');
+                      setMotorViewMode('selection');
+                      showToast('เปลี่ยนเป็นระบบเช็คราคาประกันรถยนต์ Smile Motor');
+                    }}
                   />
-                </div>
-              </section>
-            </>
+                </section>
+
+                {/* Section: "แพ็กเกจและความคุ้มครอง" (เลือกแผนก่อน ไม่เกิน 3 แผน แล้วค่อยกดเปรียบเทียบ) */}
+                <section className="pt-2">
+                  <div className="text-center mb-5">
+                    <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 tracking-tight">
+                      แพ็กเกจและความคุ้มครอง
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">
+                      เลือกแผนที่สนใจ (สูงสุดไม่เกิน 3 แผน) แล้วกดปุ่ม <strong>"กดเปรียบเทียบแผน"</strong> เพื่อดูรายละเอียด
+                    </p>
+                  </div>
+
+                  {/* Plan Selector (15-I, 15-O, 610-I, 610-O, PA 60, PA 90, PA 120, PA 150) */}
+                  <div className="mb-4">
+                    <PlanSelector
+                      allPlans={plans}
+                      selectedPlanIds={selectedPlanIds}
+                      onTogglePlan={handleTogglePlan}
+                      onSetSelection={handleSetSelection}
+                      onViewPlanDetail={handleViewPlanDetail}
+                      currentAge={userAge}
+                      existingCustomer={existingCustomer}
+                      onResetCustomer={handleResetSearch}
+                      onOpenPlanSettings={() => setIsPlanSettingsOpen(true)}
+                      onGoToComparison={handleGoToComparison}
+                      onAssignPlanToCustomer={handleAssignPlanToCustomer}
+                      onShowToast={showToast}
+                      payerType={payerType}
+                      isSearchActive={isSearchActive}
+                    />
+                  </div>
+                </section>
+              </>
+            )
           ) : (
             /* Dedicated Comparison View (เปิดเป็นอีก UI เพื่อดูรายละเอียด สามารถเพิ่มลดแก้ไขแผนในหน้านี้ได้) */
             <section className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
