@@ -68,18 +68,18 @@ export const SmileSaleSidebar: React.FC<SmileSaleSidebarProps> = ({
 
         {/* Navigation Items */}
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 text-sm font-medium">
-          {/* Home */}
+          {/* Home / หน้าทางเข้าหลัก */}
           <button
             type="button"
-            onClick={() => onSelectMenu?.('home')}
+            onClick={() => onSelectMenu?.('portal')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
-              activeMenu === 'home'
-                ? 'bg-white/20 text-white font-semibold'
+              activeMenu === 'portal' || activeMenu === 'home'
+                ? 'bg-white/20 text-white font-bold shadow-xs border-l-2 border-amber-400'
                 : 'text-white/80 hover:bg-white/10 hover:text-white'
             }`}
           >
             <Home className="w-4 h-4 text-sky-200" />
-            <span>Home</span>
+            <span>หน้าทางเข้าหลัก (Portal)</span>
           </button>
 
           {/* ติดตามสถานะ New App */}
@@ -158,7 +158,7 @@ export const SmileSaleSidebar: React.FC<SmileSaleSidebarProps> = ({
             >
               <div className="flex items-center gap-3">
                 <Briefcase className="w-4 h-4 text-amber-300" />
-                <span>Smart Brochure</span>
+                <span>ระบบเช็คราคา & โบรชัวร์</span>
               </div>
               {isBrochureOpen ? (
                 <ChevronUp className="w-4 h-4 text-white/70" />
@@ -169,7 +169,7 @@ export const SmileSaleSidebar: React.FC<SmileSaleSidebarProps> = ({
 
             {isBrochureOpen && (
               <div className="pl-6 pr-2 pt-1.5 pb-2 space-y-1">
-                {/* Active Sub-item: Smart Brochure */}
+                {/* เช็คราคาประกันสุขภาพ */}
                 <button
                   type="button"
                   onClick={() => onSelectMenu?.('smart-brochure')}
@@ -180,17 +180,35 @@ export const SmileSaleSidebar: React.FC<SmileSaleSidebarProps> = ({
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5 text-sky-300" />
-                  <span>Smart Brochure</span>
+                  <span>เช็คราคาประกันสุขภาพ</span>
                 </button>
 
-                {/* จัดการเอกสาร Brochure */}
+                {/* เช็คราคาประกันรถยนต์ */}
                 <button
                   type="button"
-                  onClick={() => onSelectMenu?.('manage-docs')}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  onClick={() => onSelectMenu?.('benefits-motor')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs font-medium transition-colors ${
+                    activeMenu === 'benefits-motor'
+                      ? 'bg-white/20 text-white font-bold shadow-2xs border-l-2 border-amber-400'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5 text-sky-200" />
+                  <span>เช็คราคาประกันรถยนต์</span>
+                </button>
+
+                {/* คลังเอกสารโบรชัวร์ 5 หมวด */}
+                <button
+                  type="button"
+                  onClick={() => onSelectMenu?.('portal-docs')}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs font-medium transition-colors ${
+                    activeMenu === 'portal-docs'
+                      ? 'bg-white/20 text-white font-bold shadow-2xs border-l-2 border-amber-400'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
+                  }`}
                 >
                   <FileText className="w-3.5 h-3.5 text-sky-200" />
-                  <span>จัดการเอกสาร Brochure</span>
+                  <span>เอกสารแผนประกัน (5 หมวด)</span>
                 </button>
 
                 {/* จัดการสิทธิประโยชน์ PH (ตั้งค่าความคุ้มครองแผนประกันทุกหมวด) */}
@@ -211,16 +229,6 @@ export const SmileSaleSidebar: React.FC<SmileSaleSidebarProps> = ({
                   <span className="text-[9px] bg-amber-500/30 text-white px-1.5 py-0.5 rounded font-bold border border-amber-300/40">
                     ตั้งค่าแผน
                   </span>
-                </button>
-
-                {/* จัดการสิทธิประโยชน์ Motor */}
-                <button
-                  type="button"
-                  onClick={() => onSelectMenu?.('benefits-motor')}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-                >
-                  <Settings className="w-3.5 h-3.5 text-sky-200" />
-                  <span>จัดการสิทธิประโยชน์ Motor</span>
                 </button>
               </div>
             )}

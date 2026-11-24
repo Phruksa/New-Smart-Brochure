@@ -12,7 +12,7 @@ import { SmileSaleHeader } from './components/SmileSaleHeader';
 import { SmileSaleSearchCard } from './components/SmileSaleSearchCard';
 import { SmileMotorSearchCard, MotorSearchParams } from './components/SmileMotorSearchCard';
 import { SmileMotorPlansSection } from './components/SmileMotorPlansSection';
-import { SmileMotorPlan, generateSmileMotorPlans } from './data/motorData';
+import { SmileMotorPlan, generateSmileMotorPlans, getDefaultSmileMotorPlans } from './data/motorData';
 import { PlanSelector } from './components/PlanSelector';
 import { ComparisonTable } from './components/ComparisonTable';
 import { ExportModal } from './components/ExportModal';
@@ -20,6 +20,7 @@ import { HistoryModal } from './components/HistoryModal';
 import { PlanSettingsModal } from './components/PlanSettingsModal';
 import { PlanPreviewModal } from './components/PlanPreviewModal';
 import { PremiumCodeLookup } from './components/PremiumCodeLookup';
+import { InsurancePortalView } from './components/InsurancePortalView';
 import { InsuranceTypeCode } from './data/premiumCodes';
 import { triggerPrint } from './utils/pdfExport';
 import {
@@ -56,7 +57,7 @@ import {
 export default function App() {
   // Sidebar open/close state
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
-  const [activeMenu, setActiveMenu] = useState<string>('smart-brochure');
+  const [activeMenu, setActiveMenu] = useState<string>('portal');
 
   // Customer & Age State
   const [userAge, setUserAge] = useState<number | null>(null);
@@ -74,14 +75,14 @@ export default function App() {
 
   // Selected plans for comparison (max 3 plans, empty by default, user selects freely)
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
-  const [currentView, setCurrentView] = useState<'selection' | 'comparison' | 'premium-code'>('selection');
+  const [currentView, setCurrentView] = useState<'portal' | 'selection' | 'comparison' | 'premium-code'>('portal');
   const [premiumCodeType, setPremiumCodeType] = useState<InsuranceTypeCode>('life');
 
   // Insurance Product Category: 'health' (Smile Health) | 'motor' (Smile Motor)
   const [insuranceCategory, setInsuranceCategory] = useState<'health' | 'motor'>('health');
   const [motorSearchParams, setMotorSearchParams] = useState<MotorSearchParams | null>(null);
   const [motorPlans, setMotorPlans] = useState<SmileMotorPlan[]>(() =>
-    generateSmileMotorPlans('TOYOTA', 'Yaris Ativ', 2024, '110 (รถยนต์นั่งส่วนบุคคลไม่เกิน 7 ที่นั่ง)', 600000)
+    getDefaultSmileMotorPlans()
   );
   const [motorViewMode, setMotorViewMode] = useState<'selection' | 'comparison'>('selection');
 
@@ -234,7 +235,12 @@ export default function App() {
 
   // Assign or purchase a plan code for a customer
   const handleAssignPlanToCustomer = (customer: CustomerProfile, newPolicy: CustomerPolicyItem) => {
-    const matched = MOCK_EXISTING_CUSTOMERS.find((c) => c.idCard === customer.idCard);
+    const matched = MOCK_EXISTING_CUSTOMERS.find(
+      (c) =>
+        (customer.idCard && c.idCard === customer.idCard) ||
+        (customer.passportNumber && c.passportNumber === customer.passportNumber) ||
+        c.policyNumber === customer.policyNumber
+    );
     if (matched) {
       if (!matched.policies) matched.policies = [];
       matched.policies = [newPolicy, ...matched.policies.filter((p) => p.policyNumber !== newPolicy.policyNumber)];
@@ -346,7 +352,7 @@ export default function App() {
       agentPhone: exportMeta.agentPhone,
       userAge,
       payerType,
-      existingCustomerIdCard: existingCustomer?.idCard || null,
+      existingCustomerIdCard: existingCustomer?.idCard || existingCustomer?.passportNumber || null,
       notes: exportMeta.notes,
     });
 
@@ -394,7 +400,11 @@ export default function App() {
     }
 
     if (item.existingCustomerIdCard) {
-      const matched = MOCK_EXISTING_CUSTOMERS.find((c: CustomerProfile) => c.idCard === item.existingCustomerIdCard);
+      const matched = MOCK_EXISTING_CUSTOMERS.find(
+        (c: CustomerProfile) =>
+          c.idCard === item.existingCustomerIdCard ||
+          c.passportNumber === item.existingCustomerIdCard
+      );
       if (matched) {
         setExistingCustomer(matched);
       }
@@ -422,7 +432,13 @@ export default function App() {
         activeMenu={activeMenu}
         onSelectMenu={(menu) => {
           setActiveMenu(menu);
-          if (menu === 'benefits-ph' || menu === 'plan-settings') {
+          if (menu === 'portal' || menu === 'home') {
+            setCurrentView('portal');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else if (menu === 'portal-docs') {
+            setCurrentView('portal');
+            window.scrollTo({ top: 380, behavior: 'smooth' });
+          } else if (menu === 'benefits-ph' || menu === 'plan-settings') {
             setIsPlanSettingsOpen(true);
           } else if (menu === 'benefits-motor') {
             setInsuranceCategory('motor');
@@ -435,6 +451,7 @@ export default function App() {
             setMotorViewMode('selection');
             setCurrentView('selection');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('เปิดระบบเช็คราคาประกันสุขภาพ Smile Health');
           } else if (menu === 'code-life') {
             setPremiumCodeType('life');
             setCurrentView('premium-code');
@@ -474,11 +491,14 @@ export default function App() {
           existingCustomer={existingCustomer}
           selectedPlansCount={selectedPlans.length}
           currentView={currentView}
+          insuranceCategory={insuranceCategory}
           onSaveSmartBrochure={handleSaveCurrentComparison}
           onNavigateView={(view) => {
             setCurrentView(view);
             if (view === 'premium-code') {
               setActiveMenu('code-all');
+            } else if (view === 'portal') {
+              setActiveMenu('portal');
             } else {
               setActiveMenu('smart-brochure');
             }
@@ -487,7 +507,34 @@ export default function App() {
 
         {/* Page Content Container */}
         <main className="flex-1 px-4 sm:px-6 md:px-8 py-4 sm:py-5 max-w-7xl w-full mx-auto space-y-4 sm:space-y-5">
-          {currentView === 'premium-code' ? (
+          {currentView === 'portal' ? (
+            <InsurancePortalView
+              onSelectCategory={(category) => {
+                setInsuranceCategory(category);
+                setMotorViewMode('selection');
+                setCurrentView('selection');
+                setActiveMenu(category === 'health' ? 'smart-brochure' : 'benefits-motor');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                showToast(
+                  category === 'health'
+                    ? 'เข้าสู่ระบบเช็คราคาประกันสุขภาพ Smile Health'
+                    : 'เข้าสู่ระบบเช็คราคาประกันรถยนต์ Smile Motor'
+                );
+              }}
+              onGoToPremiumCode={(subType) => {
+                if (subType === 'home' || subType === 'travel') {
+                  setPremiumCodeType(subType);
+                } else {
+                  setPremiumCodeType('life');
+                }
+                setCurrentView('premium-code');
+                setActiveMenu('code-all');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                showToast('เปิดระบบค้นหาโค๊ดเบี้ยประกันภัย');
+              }}
+              onShowToast={showToast}
+            />
+          ) : currentView === 'premium-code' ? (
             <PremiumCodeLookup
               initialType={premiumCodeType}
               existingCustomer={existingCustomer}
@@ -527,8 +574,9 @@ export default function App() {
                         }}
                         onReset={() => {
                           setMotorSearchParams(null);
-                          setMotorPlans(generateSmileMotorPlans('TOYOTA', 'Yaris Ativ', 2024, '110 (รถยนต์นั่งส่วนบุคคลไม่เกิน 7 ที่นั่ง)', 600000));
-                          showToast('รีเซ็ตข้อมูลประกันรถยนต์เรียบร้อยแล้ว');
+                          setMotorPlans(getDefaultSmileMotorPlans());
+                          setExistingCustomer(null);
+                          showToast('รีเซ็ตข้อมูลประกันรถยนต์และแสดงแผนเริ่มต้นเรียบร้อยแล้ว');
                         }}
                         onSwitchToHealth={() => {
                           setInsuranceCategory('health');
@@ -536,6 +584,13 @@ export default function App() {
                           showToast('เปลี่ยนเป็นระบบเช็คราคาประกันสุขภาพ Smile Health');
                         }}
                         initialParams={motorSearchParams || undefined}
+                        existingCustomer={existingCustomer}
+                        onSelectCustomer={(c) => {
+                          setExistingCustomer(c);
+                          if (c) {
+                            showToast(`เลือกลูกค้าเดิม: คุณ${c.fullName}`);
+                          }
+                        }}
                       />
                     </section>
 
@@ -557,8 +612,15 @@ export default function App() {
                 <SmileMotorPlansSection
                   plans={motorPlans}
                   searchParams={motorSearchParams}
+                  existingCustomer={existingCustomer}
+                  onResetCustomer={handleResetSearch}
                   viewMode={motorViewMode}
                   onViewModeChange={setMotorViewMode}
+                  onResetSearch={() => {
+                    setMotorSearchParams(null);
+                    setMotorPlans(getDefaultSmileMotorPlans());
+                    showToast('รีเซ็ตเงื่อนไขการค้นหาและคืนค่าแผนเริ่มต้นเรียบร้อยแล้ว');
+                  }}
                   onOpenPreview={(selected) => {
                     showToast(`พรีวิวโบรชัวร์ Smile Motor (${selected.length} แผน)`);
                   }}

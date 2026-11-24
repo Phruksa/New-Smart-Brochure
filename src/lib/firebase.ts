@@ -255,7 +255,8 @@ export async function seedCustomersToFirestore(): Promise<void> {
     if (snapshot.empty) {
       const batch = writeBatch(db);
       MOCK_EXISTING_CUSTOMERS.forEach((customer) => {
-        const docRef = doc(db, CUSTOMERS_COLLECTION, customer.idCard);
+        const docId = customer.idCard || customer.passportNumber || customer.policyNumber;
+        const docRef = doc(db, CUSTOMERS_COLLECTION, docId);
         batch.set(docRef, customer);
       });
       await batch.commit();

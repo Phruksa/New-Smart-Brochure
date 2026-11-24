@@ -68,7 +68,11 @@ export const ForwardCustomerModal: React.FC<ForwardCustomerModalProps> = ({
     existingCustomer ? 'existing' : 'existing'
   );
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
-    existingCustomer?.idCard || MOCK_EXISTING_CUSTOMERS[0].idCard
+    existingCustomer?.idCard ||
+      existingCustomer?.passportNumber ||
+      MOCK_EXISTING_CUSTOMERS[0].idCard ||
+      MOCK_EXISTING_CUSTOMERS[0].passportNumber ||
+      ''
   );
   const [newCustomerName, setNewCustomerName] = useState<string>('');
   const [newCustomerPhone, setNewCustomerPhone] = useState<string>('');
@@ -80,7 +84,9 @@ export const ForwardCustomerModal: React.FC<ForwardCustomerModalProps> = ({
   // Determine current active customer target
   const currentCustomer =
     customerMode === 'existing'
-      ? MOCK_EXISTING_CUSTOMERS.find((c) => c.idCard === selectedCustomerId) || existingCustomer
+      ? MOCK_EXISTING_CUSTOMERS.find(
+          (c) => (c.idCard || c.passportNumber || c.policyNumber) === selectedCustomerId
+        ) || existingCustomer
       : null;
 
   const targetCustomerName =
@@ -370,11 +376,15 @@ ${proposalPortalUrl}
                   }}
                   className="w-full text-xs sm:text-sm bg-white border border-slate-300 rounded-xl px-3 py-2 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00509d]"
                 >
-                  {MOCK_EXISTING_CUSTOMERS.map((cust) => (
-                    <option key={cust.idCard} value={cust.idCard}>
-                      คุณ{cust.fullName} (อายุ {cust.age} ปี • โทร {cust.phone || '-'} • บัตร {cust.idCard})
-                    </option>
-                  ))}
+                  {MOCK_EXISTING_CUSTOMERS.map((cust) => {
+                    const custId = cust.idCard || cust.passportNumber || cust.policyNumber;
+                    return (
+                      <option key={custId} value={custId}>
+                        คุณ{cust.fullName} (อายุ {cust.age} ปี • โทร {cust.phone || '-'} •{' '}
+                        {cust.idCard ? `บัตร ${cust.idCard}` : `Passport ${cust.passportNumber || '-'}`})
+                      </option>
+                    );
+                  })}
                 </select>
                 {currentCustomer && (
                   <div className="flex items-center justify-between text-xs text-slate-500 bg-white p-2.5 rounded-xl border border-slate-200">

@@ -4,7 +4,6 @@ import { formatCurrency, getPlanTargetAudience, getPlanPrimaryAudience } from '.
 import { calculatePolicyDuration } from '../data/customers';
 import {
   Check,
-  X,
   Layers,
   UserCheck,
   Calendar,
@@ -12,8 +11,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Sparkles,
-  Clock,
-  Activity,
   Plus,
   FileText,
   Car,
@@ -234,7 +231,7 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
 
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-3.5 sm:p-5 mb-4">
-      {/* 1. ข้อมูลลูกค้าเดิมและแผนที่ถือครอง (รวมประกันสุขภาพ, รถยนต์, และประกันอื่นๆ) */}
+      {/* 1. ข้อมูลลูกค้าเดิมและแผนที่ถือครอง: แสดงเฉพาะประกันสุขภาพและอุบัติเหตุ (Health & PA) */}
       {existingCustomer && (() => {
         const customerPolicies: CustomerPolicyItem[] =
           existingCustomer.policies && existingCustomer.policies.length > 0
@@ -273,37 +270,65 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
           return 'health';
         };
 
-        const motorPolicies = customerPolicies.filter((p) => getPolicyType(p) === 'motor');
+        // แยกเฉพาะกรมธรรม์สุขภาพและอุบัติเหตุ (Health & PA) ตามที่ผู้ใช้ระบุ
         const healthPaPolicies = customerPolicies.filter((p) => {
           const type = getPolicyType(p);
           return type === 'health' || type === 'pa';
         });
-        const otherPolicies = customerPolicies.filter((p) => {
-          const type = getPolicyType(p);
-          return type !== 'motor' && type !== 'health' && type !== 'pa';
-        });
 
-        const displayedCustomerPolicies = customerPolicies.filter((pol) => {
+        const healthOnlyCount = healthPaPolicies.filter((p) => getPolicyType(p) === 'health').length;
+        const paOnlyCount = healthPaPolicies.filter((p) => getPolicyType(p) === 'pa').length;
+
+        if (healthPaPolicies.length === 0) {
+          return (
+            <div className="mb-5 rounded-xl border border-sky-200 bg-sky-50/60 p-4 text-xs">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-[#00509d]" />
+                  <span className="font-bold text-slate-900 text-sm">
+                    ผู้เอาประกัน: คุณ{existingCustomer.fullName} (อายุ {existingCustomer.age} ปี)
+                  </span>
+                  {existingCustomer.payerName && existingCustomer.payerRelation !== 'ตนเอง' && (
+                    <span className="text-[11px] px-2 py-0.5 rounded bg-white text-slate-700 font-medium border border-sky-200">
+                      ผู้ชำระเบี้ย: {existingCustomer.payerName}
+                    </span>
+                  )}
+                </div>
+                {onResetCustomer && (
+                  <button
+                    type="button"
+                    onClick={onResetCustomer}
+                    className="text-xs text-[#0088cc] hover:text-[#00509d] underline font-medium cursor-pointer"
+                  >
+                    เปลี่ยนลูกค้า
+                  </button>
+                )}
+              </div>
+              <p className="text-slate-600 text-xs mt-2">
+                คุณ{existingCustomer.fullName} ถือครองเฉพาะกรมธรรม์ประเภทอื่น (เช่น ประกันภัยรถยนต์) และยังไม่มีกรมธรรม์ประกันสุขภาพหรืออุบัติเหตุในระบบ ท่านสามารถเลือกดูและสมัครแผนความคุ้มครองสุขภาพหรือ PA ใหม่ด้านล่างเพื่อเพิ่มความคุ้มครองได้ทันที
+              </p>
+            </div>
+          );
+        }
+
+        const displayedCustomerPolicies = healthPaPolicies.filter((pol) => {
           if (customerPolicyFilter === 'all') return true;
           const type = getPolicyType(pol);
-          if (customerPolicyFilter === 'health_pa') return type === 'health' || type === 'pa';
-          if (customerPolicyFilter === 'motor') return type === 'motor';
-          if (customerPolicyFilter === 'other') return type !== 'motor' && type !== 'health' && type !== 'pa';
+          if (customerPolicyFilter === 'health_pa') return type === 'health';
+          if (customerPolicyFilter === 'motor') return type === 'pa';
           return true;
         });
 
         let totalExistingMonthly = 0;
-        let totalExistingAnnual = 0;
 
-        customerPolicies.forEach((pol) => {
+        healthPaPolicies.forEach((pol) => {
           const plan = pol.planId ? allPlans.find((p) => p.id === pol.planId) : undefined;
           totalExistingMonthly += plan?.monthlyPremium ?? pol.monthlyPremium ?? 0;
-          totalExistingAnnual += plan?.annualPremium ?? pol.annualPremium ?? 0;
         });
 
         return (
           <div className="mb-5 rounded-xl border border-blue-200/80 bg-white shadow-xs overflow-hidden">
-            {/* Header: Customer Info & Status Bar - โทนสีฟ้า มินิมอล สะอาดตา */}
+            {/* Header: Customer Info & Status Bar - แสดงเฉพาะประกันสุขภาพและ PA */}
             <div className="bg-blue-50/70 px-3.5 py-2.5 sm:px-4 sm:py-3 border-b border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
@@ -312,18 +337,30 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-bold text-slate-900 text-xs sm:text-sm">
-                      แผนเดิมที่ถือครอง: คุณ{existingCustomer.fullName}
+                      ผู้เอาประกัน: คุณ{existingCustomer.fullName}
                     </span>
                     <span className="text-xs text-slate-500">
                       (อายุ {existingCustomer.age} ปี)
                     </span>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
-                      รวม {customerPolicies.length} กรมธรรม์
+                    <span className="text-xs font-semibold text-[#00509d]">
+                      • รวม {healthPaPolicies.length} กรมธรรม์ (สุขภาพ/PA)
                     </span>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 mt-0.5 text-xs text-slate-500 flex-wrap">
-                    <span>เลขบัตร: <strong className="font-mono text-slate-700">{existingCustomer.idCard}</strong></span>
-                    <span className="text-slate-300">•</span>
+                    {existingCustomer.payerName && (
+                      <>
+                        <span>
+                          ผู้ชำระเบี้ย:{' '}
+                          <strong className="text-slate-700">
+                            {existingCustomer.payerName}
+                            {existingCustomer.payerRelation && existingCustomer.payerRelation !== 'ตนเอง'
+                              ? ` (${existingCustomer.payerRelation})`
+                              : ''}
+                          </strong>
+                        </span>
+                        <span className="text-slate-300">•</span>
+                      </>
+                    )}
                     <span>LINE OA: <strong className="text-slate-700">{existingCustomer.lineOaStatusText}</strong></span>
                   </div>
                 </div>
@@ -340,10 +377,9 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
               )}
             </div>
 
-            {/* Filter Tabs for Policy Types (All, Health/PA, Motor, Other) */}
-            {customerPolicies.length > 1 && (
+            {/* Filter Tabs for Health and PA only */}
+            {healthPaPolicies.length > 1 && healthOnlyCount > 0 && paOnlyCount > 0 && (
               <div className="bg-white px-3.5 py-2 border-b border-slate-100 flex items-center gap-1.5 flex-wrap text-xs">
-                <span className="text-slate-400 text-[11px] mr-1 hidden sm:inline">หมวดหมู่:</span>
                 <button
                   type="button"
                   onClick={() => setCustomerPolicyFilter('all')}
@@ -353,57 +389,38 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                       : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
                   }`}
                 >
-                  ทั้งหมด ({customerPolicies.length})
+                  ทั้งหมด ({healthPaPolicies.length})
                 </button>
 
-                {healthPaPolicies.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomerPolicyFilter('health_pa')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-colors cursor-pointer flex items-center gap-1 ${
-                      customerPolicyFilter === 'health_pa'
-                        ? 'bg-blue-600 text-white font-bold shadow-2xs'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                    }`}
-                  >
-                    <ShieldCheck className="w-3 h-3 text-blue-500" />
-                    <span>สุขภาพ/PA ({healthPaPolicies.length})</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setCustomerPolicyFilter('health_pa')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-colors cursor-pointer flex items-center gap-1 ${
+                    customerPolicyFilter === 'health_pa'
+                      ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                  }`}
+                >
+                  <ShieldCheck className="w-3 h-3 text-blue-500" />
+                  <span>ประกันสุขภาพ ({healthOnlyCount})</span>
+                </button>
 
-                {motorPolicies.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomerPolicyFilter('motor')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-colors cursor-pointer flex items-center gap-1 ${
-                      customerPolicyFilter === 'motor'
-                        ? 'bg-blue-600 text-white font-bold shadow-2xs'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                    }`}
-                  >
-                    <Car className="w-3 h-3 text-blue-500" />
-                    <span>ประกันรถยนต์ ({motorPolicies.length})</span>
-                  </button>
-                )}
-
-                {otherPolicies.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomerPolicyFilter('other')}
-                    className={`px-2.5 py-1 rounded-md text-[11px] transition-colors cursor-pointer flex items-center gap-1 ${
-                      customerPolicyFilter === 'other'
-                        ? 'bg-blue-600 text-white font-bold shadow-2xs'
-                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
-                    }`}
-                  >
-                    <Home className="w-3 h-3 text-blue-500" />
-                    <span>ประกันอื่นๆ ({otherPolicies.length})</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setCustomerPolicyFilter('motor')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] transition-colors cursor-pointer flex items-center gap-1 ${
+                    customerPolicyFilter === 'motor'
+                      ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                  }`}
+                >
+                  <Shield className="w-3 h-3 text-blue-500" />
+                  <span>ประกันอุบัติเหตุ PA ({paOnlyCount})</span>
+                </button>
               </div>
             )}
 
-            {/* Policies list in clean minimal blue-tinted rows */}
+            {/* Policies list in clean minimal blue-tinted rows (Health & PA only) */}
             <div className="divide-y divide-slate-100">
               {displayedCustomerPolicies.map((pol, idx) => {
                 const type = getPolicyType(pol);
@@ -411,8 +428,11 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                 const duration = calculatePolicyDuration(pol.startDate);
                 const isSelected = pol.planId ? selectedPlanIds.includes(pol.planId) : false;
                 const monthly = plan?.monthlyPremium ?? pol.monthlyPremium ?? 0;
-                const annual = plan?.annualPremium ?? pol.annualPremium ?? 0;
-                const lossStatus = pol.lossClaimStatus || existingCustomer.lossClaimStatus;
+                const lossRate = pol.lossClaimRate ?? existingCustomer.lossClaimRate;
+                const lossStatusDisplay =
+                  lossRate !== undefined && lossRate !== null
+                    ? `${lossRate}%`
+                    : (pol.lossClaimStatus || existingCustomer.lossClaimStatus || '0%').replace(/\s*\([^)]*\)/g, '').trim();
 
                 const displayName = plan?.name || pol.customPlanName || pol.planId || pol.policyNumber;
 
@@ -423,106 +443,25 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                   >
                     {/* Left: Plan Info & Indicators */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Icon badge by type */}
-                        {type === 'motor' ? (
-                          <span className="p-1 rounded bg-blue-100 text-blue-700 inline-flex items-center justify-center shrink-0">
-                            <Car className="w-3.5 h-3.5" />
-                          </span>
-                        ) : type === 'fire' ? (
-                          <span className="p-1 rounded bg-amber-100 text-amber-700 inline-flex items-center justify-center shrink-0">
-                            <Home className="w-3.5 h-3.5" />
-                          </span>
-                        ) : (
-                          <span className="p-1 rounded bg-blue-100 text-blue-700 inline-flex items-center justify-center shrink-0">
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                          </span>
-                        )}
-
+                      <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
                         <span className="font-bold text-slate-900 text-sm">
                           {displayName}
                         </span>
 
-                        {/* Category tag */}
-                        {type === 'motor' ? (
-                          <span className="text-[10.5px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                            {pol.vehicleDetails?.insuranceClass === 'พ.ร.บ.' ? 'พ.ร.บ. รถยนต์' : 'ประกันรถยนต์'}
-                          </span>
-                        ) : type === 'fire' ? (
-                          <span className="text-[10.5px] font-medium px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                            ประกันอัคคีภัย/บ้าน
-                          </span>
-                        ) : (
-                          <span className="text-[10.5px] font-medium px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                            {plan?.category === 'pa' ? 'ประกันอุบัติเหตุ' : 'ประกันสุขภาพ'}
-                          </span>
-                        )}
+                        <span className="text-slate-300">•</span>
 
-                        <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-50 text-slate-600 border border-slate-200">
-                          {pol.policyNumber}
+                        <span className="text-xs font-semibold text-[#00509d]">
+                          {plan?.category === 'pa' || type === 'pa' ? 'ประกันอุบัติเหตุ PA' : 'ประกันสุขภาพ'}
                         </span>
 
-                        {/* Health specific: OPD badge */}
-                        {type === 'health' && plan && (
-                          plan.opd.illness.covered ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                              <Check className="w-3 h-3 text-emerald-600" /> คุ้มครอง OPD {plan.opd.illness.perVisit ? `฿${formatCurrency(plan.opd.illness.perVisit)}/ครั้ง` : ''}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                              <X className="w-3 h-3 text-slate-400" /> ไม่คุ้มครอง OPD
-                            </span>
-                          )
-                        )}
+                        <span className="text-slate-300">•</span>
 
-                        {type === 'pa' && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-                            <Check className="w-3 h-3 text-sky-600" /> OPD อุบัติเหตุ ฿{formatCurrency(plan?.opd.accident || 5000)}
-                          </span>
-                        )}
+                        <span className="text-xs text-slate-600">
+                          เลขที่: <strong className="font-mono font-medium text-slate-800">{pol.policyNumber}</strong>
+                        </span>
                       </div>
 
-                      {/* Motor specific: Car details pill strip */}
-                      {type === 'motor' && pol.vehicleDetails && (
-                        <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
-                          {pol.vehicleDetails.licensePlate && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 font-semibold text-blue-900">
-                              🚗 ทะเบียน: {pol.vehicleDetails.licensePlate}
-                            </span>
-                          )}
-                          {pol.vehicleDetails.brandModel && (
-                            <span className="text-slate-600">
-                              {pol.vehicleDetails.brandModel}
-                            </span>
-                          )}
-                          {pol.vehicleDetails.insuranceClass && (
-                            <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 font-medium">
-                              {pol.vehicleDetails.insuranceClass}
-                              {pol.vehicleDetails.repairType ? ` (${pol.vehicleDetails.repairType})` : ''}
-                            </span>
-                          )}
-                          {pol.vehicleDetails.sumInsured && (
-                            <span className="text-slate-700 font-medium">
-                              ทุนประกัน: <strong className="text-blue-900 font-bold">฿{formatCurrency(pol.vehicleDetails.sumInsured)}</strong>
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Fire / Other specific: Sum insured */}
-                      {type === 'fire' && pol.sumInsured && (
-                        <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs text-slate-600">
-                          <span>ทุนประกันความคุ้มครอง: <strong className="text-blue-900 font-bold">฿{formatCurrency(pol.sumInsured)}</strong></span>
-                          {pol.companyName && (
-                            <>
-                              <span className="text-slate-300">•</span>
-                              <span>บริษัท: {pol.companyName}</span>
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Dates & Loss Claim status - มินิมอล สบายตา */}
+                      {/* Dates & Loss Claim status */}
                       <div className="flex items-center gap-2 sm:gap-4 mt-1.5 text-xs text-slate-500 flex-wrap">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -538,14 +477,12 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                           </>
                         )}
                         <span className="text-slate-300">•</span>
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        <div>
                           <span>ระยะเวลา: <strong className="text-blue-900 font-semibold">{duration.displayText}</strong></span>
                         </div>
                         <span className="text-slate-300">•</span>
-                        <div className="flex items-center gap-1">
-                          <Activity className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>ประวัติเคลม: <strong className="text-slate-700 font-medium">{lossStatus}</strong></span>
+                        <div>
+                          <span>ประวัติเคลม: <strong className="text-slate-700 font-medium">{lossStatusDisplay}</strong></span>
                         </div>
                       </div>
                     </div>
@@ -554,10 +491,7 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
                     <div className="flex items-center justify-between lg:justify-end gap-3 sm:gap-4 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                       <div className="text-left lg:text-right">
                         <div className="text-xs sm:text-sm font-bold text-slate-900">
-                          ฿{formatCurrency(monthly)}<span className="text-[10px] text-slate-400 font-normal">/เดือน</span>
-                        </div>
-                        <div className="text-[11px] text-slate-400 font-normal">
-                          ฿{formatCurrency(annual)}/ปี
+                          {formatCurrency(monthly)} <span className="text-[11px] text-slate-500 font-normal">บาท/เดือน</span>
                         </div>
                       </div>
 
@@ -596,36 +530,28 @@ export const PlanSelector: React.FC<PlanSelectorProps> = ({
               })}
             </div>
 
-            {/* Total summary bar across all held policies */}
-            {customerPolicies.length > 1 && (
+            {/* Total summary bar across health and PA held policies */}
+            {healthPaPolicies.length > 1 && (
               <div className="bg-blue-50/50 px-4 py-2.5 border-t border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs text-slate-600">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium text-slate-700">
-                    รวมเบี้ยแผนเดิมที่ถือครอง ({customerPolicies.length} กรมธรรม์):
+                    รวมเบี้ยแผนสุขภาพและอุบัติเหตุเดิมที่ถือครอง ({healthPaPolicies.length} กรมธรรม์):
                   </span>
-                  {motorPolicies.length > 0 && (
-                    <span className="text-[11px] font-semibold text-blue-800 bg-blue-100 px-2 py-0.5 rounded border border-blue-200">
-                      รถยนต์ {motorPolicies.length} ฉบับ
-                    </span>
-                  )}
-                  {healthPaPolicies.length > 0 && (
+                  {healthOnlyCount > 0 && (
                     <span className="text-[11px] font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
-                      สุขภาพ/PA {healthPaPolicies.length} ฉบับ
+                      สุขภาพ {healthOnlyCount} ฉบับ
                     </span>
                   )}
-                  {otherPolicies.length > 0 && (
-                    <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      อื่นๆ {otherPolicies.length} ฉบับ
+                  {paOnlyCount > 0 && (
+                    <span className="text-[11px] font-semibold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                      PA {paOnlyCount} ฉบับ
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-baseline gap-1.5 self-start sm:self-auto">
                   <span className="font-bold text-blue-900 text-xs sm:text-sm">
-                    ฿{formatCurrency(totalExistingMonthly)}/เดือน
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    (฿{formatCurrency(totalExistingAnnual)}/ปี)
+                    {formatCurrency(totalExistingMonthly)} บาท/เดือน
                   </span>
                 </div>
               </div>

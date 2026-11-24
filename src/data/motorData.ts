@@ -642,6 +642,111 @@ export interface SmileMotorPlan {
   underwriterName: string; // e.g. บริษัท ชับบ์สามัคคีประกันภัย จำกัด (มหาชน)
   eligibleAgeText: string;
   specialFeatures: string[];
+  isRecommended?: boolean;
+  recommendationReason?: string;
+  isAgeEligible?: boolean;
+  ageIneligibleReason?: string;
+}
+
+export function isPlanEligibleForAge(plan: SmileMotorPlan, carAge: number): boolean {
+  if (plan.insuranceClass === '1') {
+    if (plan.repairType === 'dealer') {
+      return carAge >= 2 && carAge <= 7;
+    }
+    return carAge >= 2 && carAge <= 15;
+  }
+  if (plan.insuranceClass === '2+') {
+    return carAge >= 2 && carAge <= 30;
+  }
+  return true;
+}
+
+export function sortPlansForVehicle(
+  plans: SmileMotorPlan[],
+  year: number,
+  repairPreference: 'garage' | 'dealer' = 'garage',
+  _marketPrice: number = 600000
+): SmileMotorPlan[] {
+  const currentYear = new Date().getFullYear();
+  const carAge = Math.max(0, currentYear - year);
+
+  // Annotate each plan with eligibility and recommendations
+  const annotated: SmileMotorPlan[] = plans.map((plan) => {
+    const isAgeEligible = isPlanEligibleForAge(plan, carAge);
+    let ageIneligibleReason: string | undefined = undefined;
+
+    if (!isAgeEligible) {
+      if (plan.insuranceClass === '1' && plan.repairType === 'dealer') {
+        ageIneligibleReason = `อายุรถ ${carAge} ปี เกินเกณฑ์ซ่อมศูนย์ (รับ 2 - 7 ปี)`;
+      } else if (plan.insuranceClass === '1') {
+        ageIneligibleReason = `อายุรถ ${carAge} ปี เกินเกณฑ์ชั้น 1 (รับ 2 - 15 ปี)`;
+      } else if (plan.insuranceClass === '2+') {
+        ageIneligibleReason = `อายุรถ ${carAge} ปี เกินเกณฑ์ชั้น 2+ (รับ 2 - 30 ปี)`;
+      }
+    }
+
+    return {
+      ...plan,
+      isAgeEligible,
+      ageIneligibleReason,
+      isRecommended: false,
+      recommendationReason: undefined,
+    };
+  });
+
+  // Sort based on vehicle criteria
+  const sorted = [...annotated].sort((a, b) => {
+    // 1. Put eligible plans first!
+    if (a.isAgeEligible && !b.isAgeEligible) return -1;
+    if (!a.isAgeEligible && b.isAgeEligible) return 1;
+
+    // 2. If car is > 15 years old: Class 2+ is the only eligible category
+    if (carAge > 15) {
+      if (a.insuranceClass === '2+' && b.insuranceClass !== '2+') return -1;
+      if (a.insuranceClass !== '2+' && b.insuranceClass === '2+') return 1;
+    }
+
+    // 3. If car is 8 - 15 years old: Class 1 Garage is eligible, Class 1 Dealer is not
+    if (carAge > 7 && carAge <= 15) {
+      if (a.id === 'motor-class1-garage' && b.id !== 'motor-class1-garage') return -1;
+      if (a.id !== 'motor-class1-garage' && b.id === 'motor-class1-garage') return 1;
+    }
+
+    // 4. If car is <= 7 years old: prioritize user's repairPreference
+    if (carAge <= 7) {
+      if (repairPreference === 'dealer') {
+        if (a.repairType === 'dealer' && b.repairType !== 'dealer') return -1;
+        if (a.repairType !== 'dealer' && b.repairType === 'dealer') return 1;
+      } else {
+        if (a.id === 'motor-class1-garage' && b.id !== 'motor-class1-garage') return -1;
+        if (a.id !== 'motor-class1-garage' && b.id === 'motor-class1-garage') return 1;
+      }
+    }
+
+    // 5. For 2+ plans: prioritize popular tier (200k)
+    if (a.insuranceClass === '2+' && b.insuranceClass === '2+') {
+      if (a.sumInsured === 200000 && b.sumInsured !== 200000) return -1;
+      if (a.sumInsured !== 200000 && b.sumInsured === 200000) return 1;
+    }
+
+    return 0;
+  });
+
+  // Mark top plan as recommended for this car
+  if (sorted.length > 0 && sorted[0].isAgeEligible) {
+    sorted[0].isRecommended = true;
+    if (carAge > 15) {
+      sorted[0].recommendationReason = `แนะนำสำหรับรถอายุ ${carAge} ปี (คุ้มครองชั้น 2+)`;
+    } else if (carAge > 7) {
+      sorted[0].recommendationReason = `แนะนำสำหรับรถอายุ ${carAge} ปี (ซ่อมอู่มาตรฐาน)`;
+    } else if (repairPreference === 'dealer') {
+      sorted[0].recommendationReason = 'แนะนำตรงใจ (จัดซ่อมศูนย์บริการมาตรฐาน)';
+    } else {
+      sorted[0].recommendationReason = 'แนะนำยอดนิยม (คุ้มครองชั้น 1 ซ่อมอู่)';
+    }
+  }
+
+  return sorted;
 }
 
 export function generateSmileMotorPlans(
@@ -650,8 +755,9 @@ export function generateSmileMotorPlans(
   year: number,
   carCode: string,
   marketPrice: number,
-  _repairPreference: 'garage' | 'dealer' = 'garage',
-  _hasDashcam: boolean = true
+  repairPreference: 'garage' | 'dealer' = 'garage',
+  hasDashcam: boolean = true,
+  isSearched: boolean = false
 ): SmileMotorPlan[] {
   const isExec = isExecutiveCarModel(brand, modelName);
   const isCar110 = carCode.startsWith('110');
@@ -718,7 +824,7 @@ export function generateSmileMotorPlans(
     };
   });
 
-  return [
+  const rawPlans: SmileMotorPlan[] = [
     {
       id: 'motor-class1-garage',
       code: isExec ? 'M1-EXEC-GARAGE' : 'M1-1088-PRO',
@@ -805,4 +911,22 @@ export function generateSmileMotorPlans(
     },
     ...plans2Plus,
   ];
+
+  if (!isSearched) {
+    return rawPlans.map((p) => ({
+      ...p,
+      isAgeEligible: true,
+      isRecommended: false,
+    }));
+  }
+
+  return sortPlansForVehicle(rawPlans, year, repairPreference, marketPrice);
+}
+
+/**
+ * Returns default baseline plans before user has performed any vehicle search.
+ * Shows all standard plans in neutral order (Class 1 Garage, Class 1 Dealer, Class 2+ tiers).
+ */
+export function getDefaultSmileMotorPlans(): SmileMotorPlan[] {
+  return generateSmileMotorPlans('TOYOTA', 'Yaris Ativ', 2024, '110', 600000, 'garage', true, false);
 }

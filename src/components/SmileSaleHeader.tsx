@@ -22,8 +22,9 @@ interface SmileSaleHeaderProps {
   exportMeta: ExportMeta;
   existingCustomer?: CustomerProfile | null;
   selectedPlansCount?: number;
-  currentView?: 'selection' | 'comparison' | 'premium-code';
-  onNavigateView?: (view: 'selection' | 'comparison' | 'premium-code') => void;
+  currentView?: 'portal' | 'selection' | 'comparison' | 'premium-code';
+  insuranceCategory?: 'health' | 'motor';
+  onNavigateView?: (view: 'portal' | 'selection' | 'comparison' | 'premium-code') => void;
   onSaveSmartBrochure?: () => void;
 }
 
@@ -39,7 +40,8 @@ export const SmileSaleHeader: React.FC<SmileSaleHeaderProps> = ({
   exportMeta,
   existingCustomer,
   selectedPlansCount = 0,
-  currentView = 'selection',
+  currentView = 'portal',
+  insuranceCategory = 'health',
   onNavigateView,
   onSaveSmartBrochure,
 }) => {
@@ -47,11 +49,18 @@ export const SmileSaleHeader: React.FC<SmileSaleHeaderProps> = ({
     ? `${exportMeta.agentFirstName} (${exportMeta.agentOfficeCode || '05741'})`
     : 'บรรจง (05741)';
 
+  const getHeaderTitle = () => {
+    if (currentView === 'portal') return 'หน้าทางเข้าหลัก • เช็คราคาและเอกสารประกันภัย';
+    if (currentView === 'premium-code') return 'ระบบโค๊ดเบี้ยประกันภัย';
+    if (currentView === 'comparison') return 'ตารางเปรียบเทียบผลประโยชน์';
+    return insuranceCategory === 'motor' ? 'เช็คราคาประกันรถยนต์ (Smile Motor)' : 'เช็คราคาประกันสุขภาพ (Smile Health)';
+  };
+
   return (
     <header className="no-print sticky top-0 z-30 bg-white border-b border-slate-200 shadow-2xs">
       <div className="px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
         {/* Left: Hamburger & Title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={onToggleSidebar}
@@ -62,24 +71,37 @@ export const SmileSaleHeader: React.FC<SmileSaleHeaderProps> = ({
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2">
-            <h1 className="text-base sm:text-lg md:text-xl font-extrabold text-[#00509d] tracking-tight">
-              {currentView === 'premium-code' ? 'ระบบโค๊ดเบี้ยประกันภัย' : 'Smart Brochure'}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-sm sm:text-base md:text-lg font-extrabold text-[#00509d] tracking-tight">
+              {getHeaderTitle()}
             </h1>
+
+            {/* Quick Navigation to Portal */}
+            {currentView !== 'portal' && (
+              <button
+                type="button"
+                onClick={() => onNavigateView?.('portal')}
+                className="text-[11px] bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-[#00509d] font-bold px-2 py-0.5 rounded-md border border-slate-200 transition-colors cursor-pointer"
+                title="กลับไปหน้าทางเข้าหลัก"
+              >
+                ← หน้าทางเข้า
+              </button>
+            )}
+
             {currentView === 'premium-code' ? (
               <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-300 hidden sm:inline-block">
                 ชีวิต • บ้าน • เดินทาง
               </span>
-            ) : (
+            ) : currentView !== 'portal' ? (
               <button
                 type="button"
                 onClick={() => onNavigateView?.('premium-code')}
-                className="text-[11px] bg-blue-50 hover:bg-blue-100 text-[#00509d] font-bold px-2.5 py-1 rounded-lg border border-blue-200 transition-colors hidden sm:inline-flex items-center gap-1 cursor-pointer"
+                className="text-[11px] bg-blue-50 hover:bg-blue-100 text-[#00509d] font-bold px-2.5 py-0.5 rounded-lg border border-blue-200 transition-colors hidden sm:inline-flex items-center gap-1 cursor-pointer"
                 title="เปิดระบบคำนวณโค๊ดเบี้ยประกัน"
               >
                 <span>โค๊ดเบี้ยประกัน</span>
               </button>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -135,22 +157,41 @@ export const SmileSaleHeader: React.FC<SmileSaleHeaderProps> = ({
         </div>
       </div>
 
-      {/* Subheader / Breadcrumb as in screenshot */}
+      {/* Subheader / Breadcrumb */}
       <div className="px-4 sm:px-6 py-1.5 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-slate-600">Smart Brochure</span>
+          {currentView === 'portal' ? (
+            <span className="font-semibold text-slate-700">หน้าทางเข้าหลัก (Portal)</span>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onNavigateView?.('portal')}
+                className="hover:text-blue-600 hover:underline cursor-pointer font-medium text-slate-600"
+              >
+                หน้าทางเข้า
+              </button>
+              <span className="text-slate-400">/</span>
+              <span className="font-semibold text-slate-800">
+                {currentView === 'premium-code'
+                  ? 'โค๊ดเบี้ยประกัน'
+                  : currentView === 'comparison'
+                  ? 'เปรียบเทียบแผน'
+                  : insuranceCategory === 'motor'
+                  ? 'เช็คราคาประกันรถยนต์'
+                  : 'เช็คราคาประกันสุขภาพ'}
+              </span>
+            </div>
+          )}
+
           {existingCustomer && (
             <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-medium">
-              ลูกค้าเดิม: คุณ{existingCustomer.fullName} ({existingCustomer.policyNumber})
+              ลูกค้าเดิม: คุณ{existingCustomer.fullName}
             </span>
           )}
         </div>
         <div className="flex items-center gap-3 text-[11px] text-slate-400">
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Firebase: smart-brochure-3195e</span>
-          </span>
-          <span className="hidden sm:inline">Siam Smile Insurance Broker</span>
+          <span className="hidden sm:inline">บริษัท สยามสไมล์ โบรกเกอร์ (ประเทศไทย) จำกัด</span>
         </div>
       </div>
     </header>

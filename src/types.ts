@@ -103,6 +103,7 @@ export interface VehiclePolicyDetails {
 
 export interface CustomerPolicyItem {
   policyNumber: string;
+  applicationNumber?: string; // เลขที่ Application
   planId?: string; // ID ของแผนสุขภาพ/PA ในระบบ (ถ้าตรงกับ allPlans)
   policyType?: CustomerPolicyCategory; // 'health' | 'pa' | 'motor' | 'fire' | 'life' | 'other'
   customPlanName?: string; // ชื่อแผนสำหรับประกันรถยนต์/อัคคีภัย/ชีวิต
@@ -118,9 +119,21 @@ export interface CustomerPolicyItem {
   notes?: string;
 }
 
+export type CustomerSearchField =
+  | 'insuredName'
+  | 'insuredIdOrPassport'
+  | 'payerName'
+  | 'payerIdOrPassport'
+  | 'applicationNumber';
+
 export interface CustomerProfile {
   idCard: string;
-  fullName: string;
+  passportNumber?: string; // หมายเลข Passport (สำหรับชาวต่างชาติ)
+  fullName: string; // ชื่อ-นามสกุล ผู้เอาประกัน
+  payerName?: string; // ชื่อ-นามสกุล / นิติบุคคล ผู้ชำระเบี้ย
+  payerIdCard?: string; // เลขบัตรประชาชนผู้ชำระเบี้ย
+  payerPassportNumber?: string; // หมายเลข Passport ผู้ชำระเบี้ย
+  payerRelation?: string; // ความสัมพันธ์ผู้ชำระเบี้ยกับผู้เอาประกัน (เช่น ตนเอง, มารดา, คู่สมรส, นายจ้าง)
   birthDate: string; // YYYY-MM-DD
   age: number;
   phone?: string;
@@ -128,6 +141,7 @@ export interface CustomerProfile {
   existingPlanIds?: string[]; // Multiple plans if applicable
   policies?: CustomerPolicyItem[]; // Detailed policies for multi-plan support
   policyNumber: string;
+  applicationNumber?: string; // เลขที่ Application หลัก
   startDate: string;
   lossClaimRate: number; // Percentage e.g. 0, 15, 48
   lossClaimStatus: string; // e.g. '0% (ไม่มีประวัติเคลม)', '15% (ประวัติดี)'

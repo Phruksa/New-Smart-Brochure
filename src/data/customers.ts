@@ -1,4 +1,4 @@
-import { CustomerProfile } from '../types';
+import { CustomerProfile, CustomerSearchField } from '../types';
 
 /**
  * Mock database of existing customers for demonstration.
@@ -8,11 +8,15 @@ export const MOCK_EXISTING_CUSTOMERS: CustomerProfile[] = [
   {
     idCard: '1100501234567',
     fullName: 'สมชาย มั่นคงดี',
+    payerName: 'สมชาย มั่นคงดี',
+    payerIdCard: '1100501234567',
+    payerRelation: 'ตนเอง',
     birthDate: '1985-06-15',
     age: 41,
     phone: '081-445-6789',
     existingPlanId: 'plan-15-i',
     policyNumber: 'POL-2022-8910',
+    applicationNumber: 'APP-2022-8910',
     startDate: '15 มิ.ย. 2565',
     lossClaimRate: 15,
     lossClaimStatus: '15% (ประวัติดี)',
@@ -84,11 +88,15 @@ export const MOCK_EXISTING_CUSTOMERS: CustomerProfile[] = [
   {
     idCard: '3200109876543',
     fullName: 'วิภาดา วงศ์สุวรรณ',
+    payerName: 'บริษัท สยามเทค จำกัด',
+    payerIdCard: '0105560012345',
+    payerRelation: 'นายจ้าง / หน่วยงาน',
     birthDate: '1992-11-20',
     age: 33,
     phone: '089-123-4567',
     existingPlanId: 'plan-610-i',
     policyNumber: 'POL-2023-4321',
+    applicationNumber: 'APP-2023-4321',
     startDate: '20 พ.ย. 2566',
     lossClaimRate: 0,
     lossClaimStatus: '0% (ไม่มีประวัติเคลม)',
@@ -145,11 +153,15 @@ export const MOCK_EXISTING_CUSTOMERS: CustomerProfile[] = [
   {
     idCard: '1509900345678',
     fullName: 'กิตติศักดิ์ เจริญพร',
+    payerName: 'กิตติศักดิ์ เจริญพร',
+    payerIdCard: '1509900345678',
+    payerRelation: 'ตนเอง',
     birthDate: '1976-03-10',
     age: 50,
     phone: '086-778-9900',
     existingPlanId: 'plan-15-o',
     policyNumber: 'POL-2021-1122',
+    applicationNumber: 'APP-2021-1122',
     startDate: '10 มี.ค. 2564',
     lossClaimRate: 48,
     lossClaimStatus: '48% (ปกติ)',
@@ -206,11 +218,15 @@ export const MOCK_EXISTING_CUSTOMERS: CustomerProfile[] = [
   {
     idCard: '1101234567890',
     fullName: 'นภาภรณ์ รัตนโชติ',
+    payerName: 'สุดาพร รัตนโชติ',
+    payerIdCard: '3100405566778',
+    payerRelation: 'มารดา',
     birthDate: '2015-08-25',
     age: 10,
     phone: '090-987-6543',
     existingPlanId: 'plan-610-o',
     policyNumber: 'POL-2024-5566',
+    applicationNumber: 'APP-2024-5566',
     startDate: '25 ส.ค. 2567',
     lossClaimRate: 0,
     lossClaimStatus: '0% (ไม่มีประวัติเคลม)',
@@ -239,6 +255,89 @@ export const MOCK_EXISTING_CUSTOMERS: CustomerProfile[] = [
         sumInsured: 100000,
         lossClaimRate: 0,
         lossClaimStatus: '0% (ไม่มีประวัติเคลม)',
+      },
+    ],
+  },
+  {
+    idCard: '1100509988776',
+    fullName: 'สมชาย พัฒนกุล',
+    payerName: 'สมชาย พัฒนกุล',
+    payerIdCard: '1100509988776',
+    payerRelation: 'ตนเอง',
+    birthDate: '1990-02-18',
+    age: 36,
+    phone: '085-332-1199',
+    existingPlanId: 'plan-15-o',
+    policyNumber: 'POL-2023-7741',
+    applicationNumber: 'APP-2023-7741',
+    startDate: '18 ก.พ. 2566',
+    lossClaimRate: 5,
+    lossClaimStatus: '5% (ประวัติดี)',
+    lineOaRegistered: true,
+    lineOaStatusText: 'ลงทะเบียนแล้ว',
+    policies: [
+      {
+        policyNumber: 'POL-2023-7741',
+        planId: 'plan-15-o',
+        policyType: 'health',
+        customPlanName: 'แผน 15-O (คุ้มครองผู้ป่วยนอก OPD)',
+        startDate: '18 ก.พ. 2566',
+        monthlyPremium: 580,
+        annualPremium: 6960,
+        lossClaimRate: 5,
+        lossClaimStatus: '5% (ประวัติดี)',
+      },
+    ],
+  },
+  {
+    idCard: '',
+    passportNumber: 'GB8845120',
+    fullName: 'เดวิด วิลสัน (David Wilson)',
+    payerName: 'วรรณา วิลสัน',
+    payerIdCard: '1100807766554',
+    payerRelation: 'คู่สมรส',
+    birthDate: '1988-04-12',
+    age: 38,
+    phone: '082-991-4455',
+    existingPlanId: 'plan-610-i',
+    policyNumber: 'POL-2024-9012',
+    applicationNumber: 'APP-2024-9012',
+    startDate: '12 เม.ย. 2567',
+    lossClaimRate: 0,
+    lossClaimStatus: '0% (ไม่มีประวัติเคลม)',
+    lineOaRegistered: true,
+    lineOaStatusText: 'ลงทะเบียนแล้ว',
+    policies: [
+      {
+        policyNumber: 'POL-2024-9012',
+        planId: 'plan-610-i',
+        policyType: 'health',
+        customPlanName: 'แผน 610-I (เหมาจ่ายระดับพรีเมียม)',
+        startDate: '12 เม.ย. 2567',
+        monthlyPremium: 690,
+        annualPremium: 8280,
+        lossClaimRate: 0,
+        lossClaimStatus: '0% (ไม่มีประวัติเคลม)',
+      },
+      {
+        policyNumber: 'VMI-2024-7788',
+        policyType: 'motor',
+        customPlanName: 'ประกันภัยรถยนต์ ประเภท 1 (ซ่อมห้าง)',
+        companyName: 'สยามสไมล์ / เมืองไทยประกันภัย',
+        startDate: '12 เม.ย. 2567',
+        endDate: '12 เม.ย. 2568',
+        annualPremium: 21500,
+        monthlyPremium: 1792,
+        sumInsured: 950000,
+        lossClaimRate: 0,
+        lossClaimStatus: '0% (ไม่มีเคลม)',
+        vehicleDetails: {
+          licensePlate: '7กง-4499 กทม.',
+          brandModel: 'Honda CR-V e:HEV (ปี 2023)',
+          insuranceClass: 'ชั้น 1',
+          repairType: 'ซ่อมห้าง',
+          sumInsured: 950000,
+        },
       },
     ],
   },
@@ -329,20 +428,73 @@ export function formatThaiBuddhistDate(dateStr: string): string {
 
 
 /**
- * Search existing customer by ID card or full name (case-insensitive substring match)
+ * Search all existing customers by insured name, insured ID/passport, payer name, payer ID/passport, or application number
  */
-export function searchExistingCustomer(query: string): CustomerProfile | null {
-  const cleanQuery = query.trim().replace(/-/g, '');
-  if (!cleanQuery) return null;
+export function searchExistingCustomers(
+  query: string,
+  field: CustomerSearchField = 'insuredName'
+): CustomerProfile[] {
+  const rawQuery = query.trim();
+  const cleanQuery = rawQuery.replace(/[-\s]/g, '').toLowerCase();
+  if (!cleanQuery) return [];
 
-  return (
-    MOCK_EXISTING_CUSTOMERS.find((c) => {
-      const cleanId = c.idCard.replace(/-/g, '');
-      const cleanName = c.fullName.replace(/\s+/g, '');
-      const searchTarget = cleanQuery.replace(/\s+/g, '');
-      return cleanId.includes(searchTarget) || cleanName.includes(searchTarget) || c.fullName.includes(query.trim());
-    }) || null
-  );
+  return MOCK_EXISTING_CUSTOMERS.filter((c) => {
+    const cleanId = (c.idCard || '').replace(/[-\s]/g, '').toLowerCase();
+    const cleanPassport = (c.passportNumber || '').replace(/[-\s]/g, '').toLowerCase();
+    const cleanName = c.fullName.replace(/\s+/g, '').toLowerCase();
+    const cleanPayerName = (c.payerName || '').replace(/\s+/g, '').toLowerCase();
+    const cleanPayerId = (c.payerIdCard || '').replace(/[-\s]/g, '').toLowerCase();
+    const cleanPayerPassport = (c.payerPassportNumber || '').replace(/[-\s]/g, '').toLowerCase();
+    const cleanMainApp = (c.applicationNumber || '').replace(/[-\s]/g, '').toLowerCase();
+
+    const insuredNameMatch =
+      cleanName.includes(cleanQuery) ||
+      c.fullName.toLowerCase().includes(rawQuery.toLowerCase());
+
+    const insuredIdOrPassportMatch =
+      cleanId.includes(cleanQuery) || cleanPassport.includes(cleanQuery);
+
+    const payerNameMatch =
+      cleanPayerName.includes(cleanQuery) ||
+      (c.payerName || '').toLowerCase().includes(rawQuery.toLowerCase());
+
+    const payerIdOrPassportMatch =
+      cleanPayerId.includes(cleanQuery) || cleanPayerPassport.includes(cleanQuery);
+
+    const appMatch =
+      cleanMainApp.includes(cleanQuery) ||
+      Boolean(
+        c.policies?.some((p) =>
+          (p.applicationNumber || '').replace(/[-\s]/g, '').toLowerCase().includes(cleanQuery)
+        )
+      );
+
+    switch (field) {
+      case 'insuredName':
+        return insuredNameMatch;
+      case 'insuredIdOrPassport':
+        return insuredIdOrPassportMatch;
+      case 'payerName':
+        return payerNameMatch;
+      case 'payerIdOrPassport':
+        return payerIdOrPassportMatch;
+      case 'applicationNumber':
+        return appMatch;
+      default:
+        return insuredNameMatch;
+    }
+  });
+}
+
+/**
+ * Search existing customer returning the first match
+ */
+export function searchExistingCustomer(
+  query: string,
+  field: CustomerSearchField = 'insuredName'
+): CustomerProfile | null {
+  const results = searchExistingCustomers(query, field);
+  return results[0] || null;
 }
 
 const THAI_MONTH_MAP: { [key: string]: number } = {

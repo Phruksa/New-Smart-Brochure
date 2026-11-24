@@ -22,18 +22,23 @@ import {
   RotateCcw,
   Building,
   SlidersHorizontal,
+  UserCheck,
 } from 'lucide-react';
 import {
   SmileMotorPlan,
 } from '../data/motorData';
+import { CustomerProfile, CustomerPolicyItem } from '../types';
 import { MotorSearchParams } from './SmileMotorSearchCard';
 import { SmileMotorComparisonTable } from './SmileMotorComparisonTable';
 
 interface SmileMotorPlansSectionProps {
   plans: SmileMotorPlan[];
   searchParams: MotorSearchParams | null;
+  existingCustomer?: CustomerProfile | null;
+  onResetCustomer?: () => void;
   viewMode?: 'selection' | 'comparison';
   onViewModeChange?: (mode: 'selection' | 'comparison') => void;
+  onResetSearch?: () => void;
   onOpenPreview?: (selectedPlans: SmileMotorPlan[]) => void;
   onShowToast?: (msg: string) => void;
 }
@@ -41,8 +46,11 @@ interface SmileMotorPlansSectionProps {
 export const SmileMotorPlansSection: React.FC<SmileMotorPlansSectionProps> = ({
   plans: initialPlans,
   searchParams,
+  existingCustomer = null,
+  onResetCustomer,
   viewMode: propViewMode,
   onViewModeChange,
+  onResetSearch,
   onOpenPreview,
   onShowToast,
 }) => {
@@ -101,6 +109,16 @@ export const SmileMotorPlansSection: React.FC<SmileMotorPlansSectionProps> = ({
 
   const class1Count = plans.filter((p) => p.insuranceClass === '1').length;
   const class2PlusCount = plans.filter((p) => p.insuranceClass === '2+').length;
+
+  // กรองเฉพาะกรมธรรม์รถยนต์และ พ.ร.บ. ของลูกค้าเดิม (แยกขาดจากประกันสุขภาพ)
+  const motorCustomerPolicies: CustomerPolicyItem[] =
+    existingCustomer?.policies?.filter((p) => {
+      if (p.policyType === 'motor') return true;
+      if (p.vehicleDetails) return true;
+      if (p.customPlanName?.includes('รถ') || p.customPlanName?.includes('พ.ร.บ.')) return true;
+      if (p.policyNumber.startsWith('VMI') || p.policyNumber.startsWith('CMI')) return true;
+      return false;
+    }) || [];
 
   // เมื่อผู้ใช้กดเปรียบเทียบแผน: แสดงตารางเปรียบเทียบเต็มหน้า แบบประกันสุขภาพ ไม่เอา Pop Up
   if (viewMode === 'comparison') {
@@ -285,6 +303,206 @@ export const SmileMotorPlansSection: React.FC<SmileMotorPlansSectionProps> = ({
         </div>
       </div>
 
+      {/* Existing Customer Motor & CMI Banner (เฉพาะประกันภัยรถยนต์และ พ.ร.บ. เท่านั้น) */}
+      {existingCustomer && (
+        <div className="mt-3.5 rounded-xl border border-blue-200/90 bg-white shadow-2xs overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-50 to-sky-50/60 px-3.5 py-2.5 sm:px-4 sm:py-3 border-b border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="w-7 h-7 rounded-lg bg-[#00509d] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Car className="w-4 h-4 text-sky-200" />
+              </span>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                    {motorCustomerPolicies.length > 0
+                      ? `แผนประกันภัยรถยนต์และ พ.ร.บ. เดิมที่ถือครอง: คุณ${existingCustomer.fullName}`
+                      : `ข้อมูลลูกค้าเดิม: คุณ${existingCustomer.fullName}`}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    (อายุ {existingCustomer.age} ปี)
+                  </span>
+                  {motorCustomerPolicies.length > 0 ? (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-100 text-blue-900 border border-blue-200">
+                      รวม {motorCustomerPolicies.length} กรมธรรม์ (รถยนต์/พ.ร.บ.)
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 border border-amber-200">
+                      ยังไม่มีกรมธรรม์รถยนต์
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 sm:gap-3 mt-0.5 text-xs text-slate-500 flex-wrap">
+                  {existingCustomer.idCard ? (
+                    <span>เลขบัตร: <strong className="font-mono text-slate-700">{existingCustomer.idCard}</strong></span>
+                  ) : existingCustomer.passportNumber ? (
+                    <span>Passport: <strong className="font-mono text-slate-700">{existingCustomer.passportNumber}</strong></span>
+                  ) : null}
+                  {existingCustomer.payerName && (
+                    <>
+                      <span className="text-slate-300">•</span>
+                      <span>
+                        ผู้ชำระเบี้ย:{' '}
+                        <strong className="text-slate-700">
+                          {existingCustomer.payerName}
+                          {existingCustomer.payerRelation && existingCustomer.payerRelation !== 'ตนเอง'
+                            ? ` (${existingCustomer.payerRelation})`
+                            : ''}
+                        </strong>
+                      </span>
+                    </>
+                  )}
+                  <span className="text-slate-300">•</span>
+                  <span>เบอร์โทร: <strong className="text-slate-700">{existingCustomer.phone || '-'}</strong></span>
+                  <span className="text-slate-300">•</span>
+                  <span>LINE OA: <strong className="text-slate-700">{existingCustomer.lineOaStatusText}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {onResetCustomer && (
+              <button
+                type="button"
+                onClick={onResetCustomer}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium underline self-start sm:self-center cursor-pointer transition-colors"
+              >
+                เปลี่ยนลูกค้า
+              </button>
+            )}
+          </div>
+
+          {motorCustomerPolicies.length > 0 ? (
+            /* Motor & CMI policy items */
+            <div className="divide-y divide-slate-100">
+              {motorCustomerPolicies.map((pol, idx) => {
+                const vDetails = pol.vehicleDetails;
+                const isCmi = pol.policyNumber.startsWith('CMI') || pol.customPlanName?.includes('พ.ร.บ.');
+
+                return (
+                  <div
+                    key={`${pol.policyNumber}-${idx}`}
+                    className="p-3.5 sm:p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3 hover:bg-blue-50/20 transition-colors"
+                  >
+                    {/* Left: Vehicle Details & Policy info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="p-1 rounded bg-blue-100 text-blue-700 inline-flex items-center justify-center shrink-0">
+                          <Car className="w-3.5 h-3.5" />
+                        </span>
+
+                        <span className="font-bold text-slate-900 text-sm">
+                          {pol.customPlanName || (isCmi ? 'พ.ร.บ. คุ้มครองผู้ประสบภัยจากรถ' : 'ประกันภัยรถยนต์')}
+                        </span>
+
+                        <span className="text-[10.5px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                          {vDetails?.insuranceClass || (isCmi ? 'พ.ร.บ.' : 'ภาคสมัครใจ')}
+                        </span>
+
+                        <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-50 text-slate-600 border border-slate-200">
+                          {pol.policyNumber}
+                        </span>
+
+                        {vDetails?.repairType && (
+                          <span className="text-[10.5px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                            {vDetails.repairType}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Vehicle specifics */}
+                      <div className="flex items-center gap-2 sm:gap-4 mt-1.5 text-xs text-slate-600 flex-wrap">
+                        {vDetails?.licensePlate && (
+                          <div className="flex items-center gap-1 font-bold text-blue-900">
+                            <span>🚗 ทะเบียน: {vDetails.licensePlate}</span>
+                          </div>
+                        )}
+                        {vDetails?.brandModel && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <div>
+                              <span>รุ่น: <strong className="text-slate-800">{vDetails.brandModel}</strong></span>
+                            </div>
+                          </>
+                        )}
+                        {(vDetails?.sumInsured || pol.sumInsured) && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <div>
+                              <span>ทุนประกัน: <strong className="text-slate-800">฿{((vDetails?.sumInsured || pol.sumInsured) || 0).toLocaleString()}</strong></span>
+                            </div>
+                          </>
+                        )}
+                        {pol.startDate && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span>เริ่ม: {pol.startDate}</span>
+                            </div>
+                          </>
+                        )}
+                        {pol.lossClaimStatus && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <span>ประวัติเคลม: <strong className="text-emerald-700">{pol.lossClaimStatus}</strong></span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Premium */}
+                    <div className="flex items-center justify-between lg:justify-end gap-3 sm:gap-4 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                      <div className="text-left lg:text-right">
+                        <div className="text-xs sm:text-sm font-bold text-slate-900">
+                          ฿{(pol.monthlyPremium || 0).toLocaleString()}<span className="text-[10px] text-slate-400 font-normal">/เดือน</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-normal">
+                          ฿{(pol.annualPremium || 0).toLocaleString()}/ปี
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-4 text-xs text-slate-600 bg-sky-50/40">
+              <p>
+                คุณ{existingCustomer.fullName} ถือครองเฉพาะกรมธรรม์ประกันสุขภาพ/อุบัติเหตุ และยังไม่มีกรมธรรม์ประกันภัยรถยนต์ในระบบ ท่านสามารถเลือกรุ่นรถยนต์และเลือกดูแพ็กเกจ Smile Motor 1088, 1488 หรือ Smile Motor 2+ ด้านล่างเพื่อออกข้อเสนอความคุ้มครองใหม่ได้ทันที
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Vehicle Search Summary Banner (แสดงเมื่อมีการกดค้นหาแผนประกัน) */}
+      {searchParams && (
+        <div className="mt-3 p-3 bg-gradient-to-r from-blue-50/90 to-sky-50/70 border border-blue-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 text-xs text-blue-950">
+            <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>
+              จัดเรียงแผนตามข้อมูลรถยนต์:{' '}
+              <strong className="font-bold text-blue-900">
+                {searchParams.brand} {searchParams.model}
+              </strong>{' '}
+              ปี <strong className="font-bold">{searchParams.year}</strong> (อายุรถ{' '}
+              {Math.max(0, new Date().getFullYear() - searchParams.year)} ปี) • จัดลำดับแผนที่เหมาะสมที่สุดขึ้นก่อน
+            </span>
+          </div>
+          {onResetSearch && (
+            <button
+              type="button"
+              onClick={onResetSearch}
+              className="text-[11px] text-blue-700 hover:text-blue-900 font-semibold flex items-center gap-1 cursor-pointer shrink-0 self-end sm:self-auto bg-white/90 hover:bg-white px-2.5 py-1 rounded-lg border border-blue-200 shadow-2xs transition-colors"
+              title="คืนค่าแผนเริ่มต้นโดยไม่จัดเรียงตามรถ"
+            >
+              <RotateCcw className="w-3 h-3 text-blue-600" />
+              <span>รีเซ็ตแผนเริ่มต้น</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Plan Selection Grid - ปรับเป็น 4 การ์ด ตามรูปแบบประกันสุขภาพ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 mt-3.5">
         {filteredPlans.map((plan) => {
@@ -297,11 +515,35 @@ export const SmileMotorPlansSection: React.FC<SmileMotorPlansSectionProps> = ({
               className={`relative rounded-2xl p-4 transition-all duration-150 text-left flex flex-col justify-between border select-none ${
                 isSelected
                   ? 'border-blue-600 bg-blue-50/20 shadow-xs ring-1 ring-blue-600 cursor-pointer'
+                  : plan.isRecommended
+                  ? 'border-amber-300 bg-white shadow-2xs hover:border-amber-400 hover:shadow-xs cursor-pointer active:scale-[0.99]'
+                  : !plan.isAgeEligible
+                  ? 'border-slate-200 bg-slate-50/70 hover:border-slate-300 cursor-pointer active:scale-[0.99] opacity-85'
                   : 'border-slate-200/90 bg-white hover:border-blue-300 hover:shadow-xs cursor-pointer active:scale-[0.99]'
               }`}
             >
               {/* Header: Name + Checkbox */}
               <div>
+                {/* Recommendation pill if recommended for this car */}
+                {plan.isRecommended && (
+                  <div className="mb-2">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-300 text-amber-800 text-[10.5px] font-bold shadow-2xs">
+                      <Sparkles className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>{plan.recommendationReason || 'แนะนำสำหรับรถคันนี้'}</span>
+                    </span>
+                  </div>
+                )}
+
+                {/* Age warning if vehicle age exceeds plan limit */}
+                {!plan.isAgeEligible && plan.ageIneligibleReason && (
+                  <div className="mb-2">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[10.5px] font-medium leading-tight">
+                      <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                      <span>{plan.ageIneligibleReason}</span>
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between gap-1.5 mb-1.5">
                   <div className="min-w-0 flex-1">
                     <span className="font-bold text-slate-900 text-sm block truncate" title={plan.name}>

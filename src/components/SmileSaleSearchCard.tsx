@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { InsurancePlan, CustomerProfile, PayerOrganizationType } from '../types';
+import { InsurancePlan, CustomerProfile, PayerOrganizationType, CustomerSearchField } from '../types';
 import {
   calculateAge,
   calculateDetailedAge,
   formatThaiBuddhistDate,
-  searchExistingCustomer,
-  MOCK_EXISTING_CUSTOMERS,
+  searchExistingCustomers,
 } from '../data/customers';
 import {
   Calendar as CalendarIcon,
@@ -14,7 +13,6 @@ import {
   UserCheck,
   CheckCircle2,
   Sparkles,
-  ChevronRight,
   Building2,
   Landmark,
   Users,
@@ -70,7 +68,9 @@ export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
 
   // Customer search state
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchField, setSearchField] = useState<CustomerSearchField>('insuredName');
   const [foundCustomer, setFoundCustomer] = useState<CustomerProfile | null>(existingCustomer);
+  const [matchedCustomers, setMatchedCustomers] = useState<CustomerProfile[]>([]);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
 
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -121,21 +121,25 @@ export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
     }
   };
 
+  const handleSelectHealthCustomer = (customer: CustomerProfile) => {
+    setFoundCustomer(customer);
+    if (customer.birthDate) {
+      setDob(customer.birthDate);
+      setIsUnknownDob(false);
+      setDetailedAge(calculateDetailedAge(customer.birthDate));
+    }
+  };
+
   const handleSearchCustomer = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setHasSearched(true);
-    const result = searchExistingCustomer(searchQuery);
-    setFoundCustomer(result);
-  };
-
-  const handleSelectMockCustomer = (cust: CustomerProfile) => {
-    setSearchQuery(cust.idCard);
-    setFoundCustomer(cust);
-    setHasSearched(true);
-    setDob(cust.birthDate);
-    setIsUnknownDob(false);
-    setDetailedAge(calculateDetailedAge(cust.birthDate));
-    onConfirmAge(cust.age, cust.birthDate, cust, payerType);
+    const results = searchExistingCustomers(searchQuery, searchField);
+    setMatchedCustomers(results);
+    if (results.length === 1) {
+      handleSelectHealthCustomer(results[0]);
+    } else {
+      setFoundCustomer(null);
+    }
   };
 
   const handleApplySearch = () => {
@@ -162,7 +166,9 @@ export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
     setPayerType('government');
     setDetailedAge({ years: 0, months: 0, days: 0, displayText: 'อายุ : 0 ปี 0 เดือน 0 วัน' });
     setFoundCustomer(null);
+    setMatchedCustomers([]);
     setSearchQuery('');
+    setSearchField('insuredName');
     setHasSearched(false);
     onReset();
   };
@@ -545,104 +551,182 @@ export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
             /* Mode 2: Existing Customer Lookup - compact */
             <div className="space-y-3">
               <form onSubmit={handleSearchCustomer}>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="กรอกเลขบัตรประชาชน 13 หลัก หรือชื่อลูกค้าเดิม..."
-                    className="w-full px-3 py-1.5 pr-20 rounded-lg border border-slate-300 focus:outline-none focus:border-[#0088cc] focus:ring-1 focus:ring-[#0088cc] text-xs sm:text-sm text-slate-800"
-                  />
-                  <button
-                    type="submit"
-                    className="absolute right-1 top-1 bottom-1 px-2.5 bg-[#00509d] hover:bg-[#003e7a] text-white rounded-md text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                <div className="flex flex-col sm:flex-row items-stretch gap-1.5">
+                  <select
+                    value={searchField}
+                    onChange={(e) => {
+                      const nextField = e.target.value as CustomerSearchField;
+                      setSearchField(nextField);
+                      if (searchQuery.trim() && hasSearched) {
+                        const results = searchExistingCustomers(searchQuery, nextField);
+                        setMatchedCustomers(results);
+                        if (results.length === 1) {
+                          handleSelectHealthCustomer(results[0]);
+                        } else {
+                          setFoundCustomer(null);
+                        }
+                      }
+                    }}
+                    aria-label="ประเภทข้อมูลที่ใช้ค้นหา"
+                    className="sm:w-56 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#0088cc] focus:ring-1 focus:ring-[#0088cc] cursor-pointer"
                   >
-                    <Search className="w-3 h-3" />
-                    <span>ค้นหา</span>
-                  </button>
+                    <option value="insuredName">ชื่อ-สกุลผู้เอาประกัน</option>
+                    <option value="insuredIdOrPassport">เลขบัตรประชาชน/Passport ผู้เอาประกัน</option>
+                    <option value="payerName">ชื่อ-สกุลผู้ชำระเบี้ย</option>
+                    <option value="payerIdOrPassport">เลขบัตรประชาชน/Passport ผู้ชำระเบี้ย</option>
+                    <option value="applicationNumber">เลขที่ Application</option>
+                  </select>
+
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSearchQuery(val);
+                        if (!val.trim()) {
+                          setHasSearched(false);
+                          setMatchedCustomers([]);
+                        }
+                      }}
+                      placeholder={
+                        searchField === 'insuredName'
+                          ? 'กรอกชื่อ-สกุลผู้เอาประกัน...'
+                          : searchField === 'insuredIdOrPassport'
+                          ? 'กรอกเลขบัตรประชาชน/Passport ผู้เอาประกัน...'
+                          : searchField === 'payerName'
+                          ? 'กรอกชื่อ-สกุลผู้ชำระเบี้ย...'
+                          : searchField === 'payerIdOrPassport'
+                          ? 'กรอกเลขบัตรประชาชน/Passport ผู้ชำระเบี้ย...'
+                          : 'กรอกเลขที่ Application (เช่น APP-2024-5566)...'
+                      }
+                      className="w-full px-3 py-1.5 pr-20 rounded-lg border border-slate-300 focus:outline-none focus:border-[#0088cc] focus:ring-1 focus:ring-[#0088cc] text-xs sm:text-sm text-slate-800"
+                    />
+                    <button
+                      type="submit"
+                      className="absolute right-1 top-1 bottom-1 px-2.5 bg-[#00509d] hover:bg-[#003e7a] text-white rounded-md text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Search className="w-3 h-3" />
+                      <span>ค้นหา</span>
+                    </button>
+                  </div>
                 </div>
               </form>
 
-              {/* Quick Customer Test Chips */}
-              <div>
-                <span className="text-[10px] text-slate-500 block mb-1">
-                  หรือคลิกเลือกลูกค้าทดสอบ:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {MOCK_EXISTING_CUSTOMERS.map((cust) => {
-                    const motorPolicy = cust.policies?.find((p) => p.policyType === 'motor' || p.vehicleDetails);
-                    const totalPolicies = cust.policies?.length || 1;
+              {/* Multiple matching customers list */}
+              {hasSearched && matchedCustomers.length > 1 && (
+                <div className="p-2.5 rounded-lg bg-sky-50/70 border border-sky-200 space-y-2">
+                  <div className="text-[11px] font-bold text-[#00509d] flex items-center justify-between">
+                    <span>พบข้อมูลลูกค้าที่ตรงกัน {matchedCustomers.length} รายการ (กรุณาเลือก 1 รายการ)</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+                    {matchedCustomers.map((cust) => {
+                      const healthPaCount =
+                        cust.policies?.filter((p) => p.policyType === 'health' || p.policyType === 'pa').length || 0;
+                      const custKey = cust.idCard || cust.passportNumber || cust.policyNumber;
+                      const foundKey = foundCustomer
+                        ? foundCustomer.idCard || foundCustomer.passportNumber || foundCustomer.policyNumber
+                        : '';
+                      const isSelected = Boolean(foundCustomer && foundKey === custKey);
 
-                    return (
-                      <button
-                        key={cust.idCard}
-                        type="button"
-                        onClick={() => handleSelectMockCustomer(cust)}
-                        className={`p-2 rounded-lg border text-left text-xs transition-all cursor-pointer flex items-center justify-between ${
-                          foundCustomer?.idCard === cust.idCard
-                            ? 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-400'
-                            : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/50'
-                        }`}
-                      >
-                        <div>
-                          <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 flex-wrap">
-                            <span>คุณ{cust.fullName} ({cust.age} ปี)</span>
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 font-medium">
-                              {totalPolicies} กรมธรรม์
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">
-                            สุขภาพ: {cust.existingPlanId.replace('plan-', '').toUpperCase()}
-                            {motorPolicy?.vehicleDetails?.licensePlate && (
-                              <span className="text-blue-700 ml-1.5 font-medium">
-                                • 🚗 รถ {motorPolicy.vehicleDetails.insuranceClass || ''} ({motorPolicy.vehicleDetails.licensePlate})
-                              </span>
+                      return (
+                        <button
+                          key={custKey}
+                          type="button"
+                          onClick={() => handleSelectHealthCustomer(cust)}
+                          className={`w-full text-left p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-400'
+                              : 'bg-white border-slate-200 hover:border-[#0088cc] hover:bg-sky-50/40'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-800 text-xs truncate">
+                              ผู้เอาประกัน: คุณ{cust.fullName}{' '}
+                              <span className="font-medium text-slate-500">(อายุ {cust.age} ปี)</span>
+                            </div>
+                            {(cust.payerName || (searchField === 'applicationNumber' && cust.applicationNumber)) && (
+                              <div className="text-[10.5px] text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                {cust.payerName && (
+                                  <span>
+                                    ผู้ชำระเบี้ย:{' '}
+                                    <strong className="text-slate-700">
+                                      {cust.payerName}
+                                      {cust.payerRelation && cust.payerRelation !== 'ตนเอง'
+                                        ? ` (${cust.payerRelation})`
+                                        : ''}
+                                    </strong>
+                                  </span>
+                                )}
+                                {searchField === 'applicationNumber' && cust.applicationNumber && (
+                                  <span>
+                                    Application: <strong className="text-slate-700">{cust.applicationNumber}</strong>
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </div>
-                        </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
 
-              {/* Found customer result box */}
-              {foundCustomer && (() => {
-                const motorPolicy = foundCustomer.policies?.find((p) => p.policyType === 'motor' || p.vehicleDetails);
-                const firePolicy = foundCustomer.policies?.find((p) => p.policyType === 'fire');
-                const totalPolicies = foundCustomer.policies?.length || 1;
+                          <span
+                            className={`shrink-0 text-[10.5px] px-2 py-0.5 rounded font-semibold ${
+                              isSelected
+                                ? 'bg-emerald-200/80 text-emerald-900'
+                                : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            มี {healthPaCount} กรมธรรม์
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state when no matching customers found */}
+              {hasSearched && matchedCustomers.length === 0 && !foundCustomer && (
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                  {searchQuery.trim()
+                    ? `ไม่พบข้อมูลลูกค้าที่ตรงกับ "${searchQuery.trim()}" กรุณาตรวจสอบข้อมูลให้ตรงกับตัวเลือกที่ค้นหา`
+                    : 'กรุณากรอกข้อมูลเพื่อค้นหา'}
+                </div>
+              )}
+
+              {/* Found customer result box: แสดงเฉพาะข้อมูลพื้นฐานและจำนวนกรมธรรม์ (ซ่อนเมื่อกดเลือกจากรายการหลายรายการ) */}
+              {foundCustomer && !(hasSearched && matchedCustomers.length > 1) && (() => {
+                const healthPaPolicies = foundCustomer.policies?.filter((p) => p.policyType === 'health' || p.policyType === 'pa') || [];
 
                 return (
                   <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-300 text-xs space-y-1">
                     <div className="flex items-center justify-between gap-1 text-emerald-900 font-bold text-xs">
                       <div className="flex items-center gap-1.5">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>พบข้อมูลลูกค้าเดิม: คุณ{foundCustomer.fullName}</span>
+                        <span>ผู้เอาประกัน: คุณ{foundCustomer.fullName}</span>
                       </div>
                       <span className="text-[10.5px] px-2 py-0.5 rounded bg-emerald-200/80 text-emerald-900 font-semibold">
-                        ถือครอง {totalPolicies} กรมธรรม์
+                        มี {healthPaPolicies.length} กรมธรรม์
                       </span>
                     </div>
 
-                    <p className="text-slate-600 text-[10.5px]">
-                      เลขบัตร: <strong>{foundCustomer.idCard}</strong> • อายุ: {foundCustomer.age} ปี • แผนสุขภาพเดิม: <strong>{allPlans.find(p => p.id === foundCustomer.existingPlanId)?.name || foundCustomer.existingPlanId}</strong>
-                    </p>
-
-                    {(motorPolicy || firePolicy) && (
-                      <div className="pt-1 border-t border-emerald-200/70 flex items-center gap-2 text-[10.5px] text-slate-700 flex-wrap">
-                        {motorPolicy && (
-                          <span className="inline-flex items-center gap-1 text-blue-900 bg-white px-2 py-0.5 rounded border border-blue-200 font-medium">
-                            🚗 ประกันรถ: {motorPolicy.customPlanName || 'ประกันรถยนต์'} {motorPolicy.vehicleDetails?.licensePlate ? `(${motorPolicy.vehicleDetails.licensePlate})` : ''}
-                          </span>
-                        )}
-                        {firePolicy && (
-                          <span className="inline-flex items-center gap-1 text-amber-900 bg-white px-2 py-0.5 rounded border border-amber-200 font-medium">
-                            🏠 ประกันอัคคีภัย: {firePolicy.customPlanName}
-                          </span>
-                        )}
-                      </div>
-                    )}
+                    <div className="text-slate-600 text-[10.5px] flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span>อายุ: {foundCustomer.age} ปี</span>
+                      {foundCustomer.payerName && (
+                        <span>
+                          • ผู้ชำระเบี้ย:{' '}
+                          <strong>
+                            {foundCustomer.payerName}
+                            {foundCustomer.payerRelation && foundCustomer.payerRelation !== 'ตนเอง'
+                              ? ` (${foundCustomer.payerRelation})`
+                              : ''}
+                          </strong>
+                        </span>
+                      )}
+                      {searchField === 'applicationNumber' && foundCustomer.applicationNumber && (
+                        <span>
+                          • Application: <strong>{foundCustomer.applicationNumber}</strong>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })()}
@@ -665,7 +749,7 @@ export const SmileSaleSearchCard: React.FC<SmileSaleSearchCardProps> = ({
                   className="w-full py-2 px-3 rounded-lg bg-[#00509d] hover:bg-[#003e7a] disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-xs sm:text-sm shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>ดึงแผนเดิมและเปรียบเทียบ</span>
+                  <span>ค้นหาแผนประกัน</span>
                 </button>
               </div>
             </div>
